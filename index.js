@@ -80,6 +80,10 @@ io.on("connection", (socket) => {
   });
 });
 
+app.get("/", (req, res) => {
+  res.status(200).send("Hello, World!");
+});
+
 app.post("/api/messageIncoming", urlBodyParser, async (req, res) => {
   console.log("request =========>", req);
   console.log("request body =========>", req.body);
