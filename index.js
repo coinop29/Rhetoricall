@@ -3,6 +3,7 @@ const path = require("path");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const dotenv = require("dotenv");
+const mongoose = require("mongoose");
 const app = express();
 const http = require("http").Server(app);
 require("dotenv").config();
@@ -34,8 +35,35 @@ app.use(bodyParser.json());
 app.use(routes);
 app.use("/static", express.static(path.join(__dirname, "public")));
 
+// Initialize Twilio and other services
 init();
 initTwilio();
+
+// Connect to MongoDB
+mongoose
+  .connect(process.env.DB_URL, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(() => {
+    console.log("Connected to MongoDB");
+  })
+  .catch((err) => {
+    console.error("Error connecting to MongoDB", err);
+  });
+
+// Event listeners for mongoose connection
+mongoose.connection.on("error", (err) => {
+  console.error("MongoDB connection error:", err);
+});
+
+mongoose.connection.on("connected", () => {
+  console.log("Connected to MongoDB");
+});
+
+mongoose.connection.on("disconnected", () => {
+  console.log("Disconnected from MongoDB");
+});
 
 const server = require("http").createServer(app);
 const io = require("socket.io")(server, {
@@ -43,12 +71,6 @@ const io = require("socket.io")(server, {
     origin: "*",
   },
 });
-
-// const io = require("socket.io")(http, {
-//   cors: {
-//     origin: "*",
-//   },
-// });
 
 io.on("connection", (socket) => {
   console.log("new connection");
