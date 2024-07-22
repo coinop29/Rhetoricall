@@ -28,7 +28,7 @@ class FilterHacked extends Filter {
       // Check if the string contains only emojis
       const isOnlyEmoji =
         string.replace(/[\p{Emoji_Presentation}]/gu, "").trim().length === 0;
-      console.log(isOnlyEmoji, string, typeof string);
+      console.log(isOnlyEmoji, string, typeof string, "------>");
       if (isOnlyEmoji) {
         return string; // Return the original string if it is only emojis
       }
