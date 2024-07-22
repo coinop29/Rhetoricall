@@ -13,8 +13,11 @@ const routes = require("./routes");
 const { MessagingResponse } = require("twilio").twiml;
 const urlBodyParser = express.urlencoded({ extended: false });
 const Joi = require("@hapi/joi");
-const Filter = require("bad-words");
-const filter = new Filter();
+// const Filter = require("bad-words");
+// const filter = new Filter();
+
+const FilterHacked = require("./bad-words-hacked"); // Import the custom filter
+const filter = new FilterHacked();
 
 var corsOptions = {
   origin: "*",
@@ -90,6 +93,8 @@ app.post("/api/messageIncoming", urlBodyParser, async (req, res) => {
   const twiml = new MessagingResponse();
   // AccountSid, NumMedia, NumSegments, RefferralNumMedia, , FromCity, FromCountry, FromState, FromZip, MessageSid, SmsMessageSid, ToCity, ToCountry, Tostate, ToZip, SmsStatus
   const { Body, From, SmsSid, To } = req.body;
+  // try{
+  // const filteredBody=filter.clean(Body),
   const item = {
     sid: SmsSid,
     from: From,
