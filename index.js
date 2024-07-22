@@ -19,6 +19,8 @@ const Joi = require("@hapi/joi");
 const FilterHacked = require("./bad-words-hacked"); // Import the custom filter
 const filter = new FilterHacked();
 
+const { clean } = require("profanity-cleaner");
+
 var corsOptions = {
   origin: "*",
 };
@@ -100,7 +102,7 @@ app.post("/api/messageIncoming", urlBodyParser, async (req, res) => {
     from: From,
     to: To,
     body: Body,
-    filtered: filter.clean(Body),
+    filtered: clean(Body),
   };
 
   const result = itemSchema.validate(item);
