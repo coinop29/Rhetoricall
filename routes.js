@@ -7,8 +7,9 @@ const { checkPhoneNumber } = require("./db");
 const { request } = require("express");
 const { initTwilio } = require("./twilio");
 const BackgroundVideo = require("./models/background");
+// const fetch = require("node-fetch");
+const { JSDOM } = require("jsdom");
 
-console.log(BackgroundVideo.find({}), "BackgroundVideo");
 const multer = require("multer");
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -60,10 +61,88 @@ router.post(
   }
 );
 
+// const getVideos = () => {
+//   fetch("https://rhetoricall.site/backgroundvideos/")
+//     .then((response) => response.text())
+//     .then((data) => {
+//       const parser = new DOMParser();
+//       const doc = parser.parseFromString(data, "text/html");
+//       const links = Array.from(doc.querySelectorAll("a"))
+//         .map((link) => link.getAttribute("href"))
+//         .filter((href) => href.endsWith(".mp4"));
+//       console.log(links, data, response);
+//       // setVideos(links);
+//     });
+// };
+
+const getVideos = async () => {
+  fetch("https://rhetoricall.site/backgroundvideos/")
+    .then((response) => response.text())
+    .then((data) => {
+      const dom = new JSDOM(data);
+      const document = dom.window.document;
+      const links = Array.from(document.querySelectorAll("a"))
+        .map((link) => link.getAttribute("href"))
+        .filter((href) => href.endsWith(".mp4"));
+      console.log(links);
+      const videoDocuments = links?.map((link) => ({
+        url: link,
+        filename: link,
+      }));
+      // await BackgroundVideo.insertMany(videoDocuments);
+      return links;
+      // setVideos(links); // This line is for client-side code, so it might not be needed here.
+    })
+    .catch((error) => {
+      console.error("Error fetching videos:", error);
+    });
+};
+
 router.get("/api/backgrounds", async (req, res) => {
   try {
+    getVideos();
     const backgrounds = await BackgroundVideo.find({});
     res.status(200).json(backgrounds);
+  } catch (error) {
+    console.error("Error in /api/backgrounds:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+router.get("/api/getBackgroundsFromExternalServer", async (req, res) => {
+  try {
+    const response = await fetch("https://rhetoricall.site/backgroundvideos/");
+    const data = await response.text();
+    const dom = new JSDOM(data);
+    const document = dom.window.document;
+    const links = Array.from(document.querySelectorAll("a"))
+      .map((link) => link.getAttribute("href"))
+      .filter((href) => href.endsWith(".mp4"));
+
+    // Fetch existing URLs from the database
+    const existingVideos = await BackgroundVideo.find({}, "url").lean();
+    const existingUrls = existingVideos.map((video) => video.url);
+
+    // Filter out URLs that already exist in the database
+    const newLinks = links.filter((link) => !existingUrls.includes(link));
+    console.log(existingVideos, existingUrls, links);
+    // Save new links to the database
+    if (existingVideos?.length == 0 || newLinks?.length > 0) {
+      const videoDocuments = newLinks.map((link) => ({
+        url: link,
+        filename: link,
+      }));
+      await BackgroundVideo.insertMany(videoDocuments);
+    }
+
+    // return newLinks;
+
+    res
+      .status(200)
+      .json({
+        message: "Backgrounds fetched successfully",
+        backgrounds: newLinks?.length,
+      });
+    //  await BackgroundVideo.insertMany(videoDocuments);
   } catch (error) {
     console.error("Error in /api/backgrounds:", error);
     res.status(500).json({ error: "Internal Server Error" });
