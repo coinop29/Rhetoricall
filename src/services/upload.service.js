@@ -15,7 +15,6 @@ class UploadService {
     };
 
     const response = await axios.post(API_URL + "upload", formData, config);
-    console.log(response.data);
     return response.data;
   }
 }

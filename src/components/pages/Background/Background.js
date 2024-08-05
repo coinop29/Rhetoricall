@@ -1,14 +1,268 @@
-import React from "react";
+/* eslint-disable */
+import React, { useState, useEffect } from "react";
 import Header from "../../layout/Header";
-import Footer from "../../layout/Footer";
+import Box from "@mui/material/Box";
+import { useNavigate } from "react-router-dom";
+import { DataGrid } from "@mui/x-data-grid";
+import useAppStore from "../../../store";
+import Button from "@mui/material/Button";
+import {
+  getAllBackgrounds,
+  getNewBackgroundsFromServer,
+  setDefaultBackground,
+} from "../../../services/api";
+import { generateVideoURL } from "../../../utils/helper";
+import { Snackbar } from "@mui/material";
+import MuiAlert from "@mui/material/Alert";
+
+const Alert = React.forwardRef(function Alert(props, ref) {
+  return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
+});
 
 const Background = () => {
+  const { setBackgroundUri } = useAppStore();
+  const navigate = useNavigate();
+
+  const [rows, setRows] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const columns = [
+    {
+      field: "_id",
+      headerName: "id",
+      hide: true,
+    },
+    {
+      field: "id",
+      headerName: "No",
+      width: 50,
+      editable: false,
+    },
+    {
+      field: "url",
+      headerName: "File Name",
+      width: 300,
+      editable: false,
+    },
+    {
+      field: "public",
+      headerName: "Public URL",
+      width: 300,
+      flex: true,
+      editable: false,
+      renderCell: (params) => {
+        return (
+          <div
+            style={{
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "5px",
+            }}
+            onClick={() => {
+              navigator.clipboard.writeText(generateVideoURL(params.row.url));
+            }}
+          >
+            {/* {`${process.env.REACT_APP_APP_URL}public_view?background=${params.row.url}`} */}
+            <video style={{ width: "60px", height: "60px" }}>
+              <source src={generateVideoURL(params.row.url)} />
+            </video>
+            {generateVideoURL(params.row.url)}
+          </div>
+        );
+      },
+    },
+    {
+      field: "isDefault",
+      headerName: "Default",
+      width: 70,
+      editable: false,
+      renderCell: (params) => {
+        return <div>{params.row.isDefault ? "Yes" : "No"}</div>;
+      },
+    },
+    {
+      field: "action",
+      headerName: "Action",
+      width: 240,
+      editable: false,
+      renderCell: (params) => {
+        return (
+          !params.row.isDefault && (
+            <div>
+              <button
+                onClick={async () => {
+                  const { status } = await setDefaultBackground(params.row._id);
+                  if (status === 200) {
+                    setBackgroundUri(generateVideoURL(params.row.url));
+                    alert("A new background has been successfully set!");
+                    navigate("/");
+                  }
+                }}
+              >
+                Set Background
+              </button>
+              {/* {`  |  `} */}
+              {/* <button
+                onClick={async () => {
+                  const { status } = await removeBackground(params.row._id);
+                  if (status === 200) {
+                    const results = await getAllBackgrounds();
+                    const { data } = results;
+                    const rows = data.map((background, key) => {
+                      const { _id, url, isDefault } = background;
+
+                      return { id: key + 1, url, isDefault, _id };
+                    });
+
+                    setRows(rows);
+
+                    await new Promise((resolve) => setTimeout(resolve, 500));
+
+                    alert("A background has been successfully removed!");
+                  }
+                }}
+              >
+                Remove
+              </button> */}
+            </div>
+          )
+        );
+      },
+    },
+  ];
+
+  const fetchBackgrounds = async () => {
+    const results = await getAllBackgrounds();
+    const { data } = results;
+    const rows = data.map((background, key) => {
+      const { _id, url, isDefault } = background;
+
+      return { id: key + 1, url, isDefault, _id };
+    });
+
+    setRows(rows);
+  };
+  useEffect(() => {
+    (async () => {
+      const results = await getAllBackgrounds();
+      const { data } = results;
+      const rows = data.map((background, key) => {
+        const { _id, url, isDefault } = background;
+
+        return { id: key + 1, url, isDefault, _id };
+      });
+
+      setRows(rows);
+    })();
+
+    return () => {
+      console.log("cleanup");
+    };
+  }, []);
+
+  const onNewBackgoundPressButton = async () => {
+    const { data } = await getNewBackgroundsFromServer();
+    setOpen(true);
+    setMessage(data?.backgrounds + " new backgrounds have been added!");
+    await fetchBackgrounds();
+  };
+
+  const handleClose = (event, reason) => {
+    if (reason === "clickaway") {
+      return;
+    }
+
+    setOpen(false);
+  };
+
   return (
     <>
       <Header />
-      <Footer />
+      {/* <Footer /> */}
+      <Box
+        className="Footer"
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <Box
+          component="footer"
+          sx={{
+            py: 3,
+            px: 2,
+            mt: "auto",
+            backgroundColor: (theme) =>
+              theme.palette.mode === "light"
+                ? theme.palette.grey[200]
+                : theme.palette.grey[800],
+          }}
+        >
+          <Button
+            // className="background-button"
+            variant="contained"
+            onClick={() => onNewBackgoundPressButton()}
+          >
+            Get New Backgrounds
+          </Button>
+        </Box>
+        <Box sx={{ height: 400, width: "100%" }}>
+          <DataGrid
+            rows={rows}
+            columns={columns}
+            initialState={{
+              pagination: {
+                paginationModel: { page: 0, pageSize: 5 },
+              },
+            }}
+            pageSizeOptions={[5, 10]}
+            // rowsPerPageOptions={[10]}
+            autoPageSize
+          />
+        </Box>
+      </Box>
+      <Snackbar open={open} autoHideDuration={6000} onClose={handleClose}>
+        <Alert onClose={handleClose} severity="success" sx={{ width: "100%" }}>
+          {message}
+        </Alert>
+      </Snackbar>
     </>
   );
 };
 
 export default Background;
+
+// const handleChange = async (file) => {
+//   setFileBlob(URL.createObjectURL(file));
+//   setFile(file);
+// };
+
+// const handleUpload = async () => {
+//   setLoading(true);
+//   const { url, filename } = await UploadService.uploadBackground(file);
+//   setBackgroundUri(`${process.env.REACT_APP_BACKEND_URL}static/${filename}`);
+//   navigate("/");
+
+//   return filename;
+// };
+
+// const handleTypeError = (err) => {
+//   alert("Please upload only .mp4 file!");
+//   console.log(err);
+//   return;
+// };
+// const getVideos = () => {
+//   fetch("https://rhetoricall.site/backgroundvideos/")
+//     .then((response) => response.text())
+//     .then((data) => {
+//       const parser = new DOMParser();
+//       const doc = parser.parseFromString(data, "text/html");
+//       const links = Array.from(doc.querySelectorAll("a"))
+//         .map((link) => link.getAttribute("href"))
+//         .filter((href) => href.endsWith(".mp4"));
+//       console.log(links, data, response);
+//       // setVideos(links);
+//     });
+// };

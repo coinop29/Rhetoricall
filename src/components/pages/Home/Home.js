@@ -23,9 +23,10 @@ import { Cube } from "../../models/Cube";
 import { ECube1 } from "../../models/Explode_Cube1";
 
 import useAppStore from "../../../store";
-import smallestloop from "./assets/audios/smallestloop.mp3";
+import smallestloop from "../../../assets/audios/smallestloop.mp3";
 import "./Home.scss";
 import { getDefaultBackground } from "../../../services/api";
+import { abstractString, generateVideoURL } from "../../../utils/helper";
 
 const Alert = React.forwardRef(function Alert(props, ref) {
   return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
@@ -54,8 +55,6 @@ export default function Home({ socket }) {
     setOpen(true);
   };
 
-  console.log("100");
-
   const handleClose = (event, reason) => {
     if (reason === "clickaway") {
       return;
@@ -68,17 +67,11 @@ export default function Home({ socket }) {
     navigate("/background");
   };
 
-  const abstractString = (str) => {
-    const words = str.split(" ");
-    return words.length > 6 ? words.slice(0, 6).join(" ") : str;
-  };
-
   const generateRandomFont = () =>
     `/fonts/font (${Math.ceil(Math.random() * 11)}).ttf`;
 
   useEffect(() => {
     socket.on("messageIncoming", (data) => {
-      console.log("message incoming", data);
       setPlay(true);
       setReset(true);
       const { filtered } = data;
@@ -117,31 +110,17 @@ export default function Home({ socket }) {
     }
   }, [play]);
 
-  // useEffect(() => {
-  //   console.log("explode ====>", explode);
-  //   console.log("cube ====>", cube);
-  // }, [explode, backgroundUri]);
-
-  // // Function to generate positions
-  // const generatePositions = (count, spacing = 5) => {
-  //   const positions = [];
-  //   const gridSize = Math.ceil(Math.sqrt(count));
-  //   for (let i = 0; i < count; i++) {
-  //     const x = (i % gridSize) * spacing - (gridSize / 2) * spacing;
-  //     const y = Math.floor(i / gridSize) * spacing - (gridSize / 2) * spacing;
-  //     positions.push([x, y, 0]);
-  //   }
-  //   return positions;
-  // };
-
-  // const cubePositions = generatePositions(cube.length);
+  console.log(generateVideoURL(backgroundUri));
 
   return (
     <Stack spacing={2} sx={{ width: "100%" }}>
       <CircularProgress />
       <Box sx={{ height: "100%", width: "100%" }}>
         <ReactPlayer
-          url={backgroundUri}
+          url={generateVideoURL(backgroundUri)}
+          // url={
+          //   "https://rhetoricall.site/backgroundvideos/bluebackgroundtunnel.mp4"
+          // }
           loop={true}
           playing={true}
           muted={true}

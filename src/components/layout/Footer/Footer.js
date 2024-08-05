@@ -12,6 +12,7 @@ import useAppStore from "../../../store";
 import "./Footer.scss";
 import Button from "@mui/material/Button";
 const API_URL = `${process.env.REACT_APP_BACKEND_URL}api/`;
+const VIDEO_SERVER = `${process.env.REACT_APP_VIDEO_SERVER}/`;
 
 export default function Footer() {
   const [file, setFile] = useState(null);
@@ -31,6 +32,12 @@ export default function Footer() {
   const removeBackground = async (_id) => {
     const response = await axios.post(API_URL + "delete", { _id });
     return response;
+  };
+  const getNewBackgroundsFromServer = async () => {
+    const response = await axios.get(
+      API_URL + "getBackgroundsFromExternalServer"
+    );
+    // return response;
   };
 
   const columns = [
@@ -60,7 +67,12 @@ export default function Footer() {
       renderCell: (params) => {
         return (
           <div
-            style={{ cursor: "pointer", display: "flex", alignItems: "center" }}
+            style={{
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "5px",
+            }}
             // onClick={() => {
             //   navigator.clipboard.writeText(
             //     `${process.env.REACT_APP_APP_URL}public_view?background=${params.row.url}`
@@ -68,10 +80,10 @@ export default function Footer() {
             // }}
           >
             {/* {`${process.env.REACT_APP_APP_URL}public_view?background=${params.row.url}`} */}
-            <video style={{ width: "40px", height: "40px" }}>
-              <source src={params.row.url} />
+            <video style={{ width: "60px", height: "60px" }}>
+              <source src={`${VIDEO_SERVER}${params.row.url}`} />
             </video>
-            {`${params.row.url}`}
+            {`${VIDEO_SERVER}${params.row.url}`}
           </div>
         );
       },
@@ -98,9 +110,7 @@ export default function Footer() {
                 onClick={async () => {
                   const { status } = await setDefaultBackground(params.row._id);
                   if (status === 200) {
-                    setBackgroundUri(
-                      `${process.env.REACT_APP_BACKEND_URL}static/${params.row.url}`
-                    );
+                    setBackgroundUri(`${VIDEO_SERVER}${params.row.url}`);
                     alert("A new background has been successfully set!");
                     navigate("/");
                   }
@@ -175,6 +185,19 @@ export default function Footer() {
     console.log(err);
     return;
   };
+  // const getVideos = () => {
+  //   fetch("https://rhetoricall.site/backgroundvideos/")
+  //     .then((response) => response.text())
+  //     .then((data) => {
+  //       const parser = new DOMParser();
+  //       const doc = parser.parseFromString(data, "text/html");
+  //       const links = Array.from(doc.querySelectorAll("a"))
+  //         .map((link) => link.getAttribute("href"))
+  //         .filter((href) => href.endsWith(".mp4"));
+  //       console.log(links, data, response);
+  //       // setVideos(links);
+  //     });
+  // };
   return (
     <Box
       className="Footer"
@@ -195,7 +218,14 @@ export default function Footer() {
               : theme.palette.grey[800],
         }}
       >
-        {fileBlob ? (
+        <Button
+          // className="background-button"
+          variant="contained"
+          onClick={getNewBackgroundsFromServer}
+        >
+          Get New Backgrounds
+        </Button>
+        {/* {fileBlob ? (
           <Box
             sx={{
               py: 3,
@@ -232,7 +262,7 @@ export default function Footer() {
             label="Upload or drop a mp4 file to replace the background"
             onTypeError={handleTypeError}
           />
-        )}
+        )} */}
         {/* <Container>
           <Typography variant="body1">SMS 3D Visualization</Typography>
           <Copyright />
@@ -244,10 +274,10 @@ export default function Footer() {
           columns={columns}
           initialState={{
             pagination: {
-              paginationModel: { page: 0, pageSize: 5 },
+              paginationModel: { page: 0, pageSize: 10 },
             },
           }}
-          pageSizeOptions={[5, 10]}
+          pageSizeOptions={[10]}
           autoPageSize
         />
       </div>
