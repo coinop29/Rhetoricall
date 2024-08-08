@@ -1,0 +1,6 @@
+.video-box:hover .background-button-overlay {
+  display: flex;
+  transition: all ease-in-out 1s;
+  flex-direction: column;
+  gap: 10px;
+}

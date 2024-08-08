@@ -9,15 +9,124 @@ import Button from "@mui/material/Button";
 import {
   getAllBackgrounds,
   getNewBackgroundsFromServer,
+  removeBackground,
   setDefaultBackground,
 } from "../../../services/api";
 import { generateVideoURL } from "../../../utils/helper";
 import { Snackbar } from "@mui/material";
 import MuiAlert from "@mui/material/Alert";
-
+import "./Background.scss";
 const Alert = React.forwardRef(function Alert(props, ref) {
   return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
 });
+
+const ROWS = [
+  {
+    _id: "66b076f2596ff5eb6788343a",
+    url: "bluebackgroundtunnel.mp4",
+    filename: "bluebackgroundtunnel.mp4",
+    isDefault: false,
+    __v: 0,
+  },
+  {
+    _id: "66b076f2596ff5eb6788343b",
+    url: "bluegrid.mp4",
+    filename: "bluegrid.mp4",
+    isDefault: false,
+    __v: 0,
+  },
+  {
+    _id: "66b076f2596ff5eb6788343c",
+    url: "connectedlines.mp4",
+    filename: "connectedlines.mp4",
+    isDefault: false,
+    __v: 0,
+  },
+  {
+    _id: "66b076f2596ff5eb6788343d",
+    url: "crazygrid.mp4",
+    filename: "crazygrid.mp4",
+    isDefault: false,
+    __v: 0,
+  },
+  {
+    _id: "66b076f2596ff5eb6788343e",
+    url: "grid2.mp4",
+    filename: "grid2.mp4",
+    isDefault: false,
+    __v: 0,
+  },
+  {
+    _id: "66b076f2596ff5eb6788343f",
+    url: "purplegridcar.mp4",
+    filename: "purplegridcar.mp4",
+    isDefault: false,
+    __v: 0,
+  },
+  {
+    _id: "66b076f2596ff5eb67883440",
+    url: "scifi1.mp4",
+    filename: "scifi1.mp4",
+    isDefault: false,
+    __v: 0,
+  },
+  {
+    _id: "66b076f2596ff5eb67883441",
+    url: "scifi2.mp4",
+    filename: "scifi2.mp4",
+    isDefault: false,
+    __v: 0,
+  },
+  {
+    _id: "66b076f2596ff5eb67883442",
+    url: "scifi3.mp4",
+    filename: "scifi3.mp4",
+    isDefault: false,
+    __v: 0,
+  },
+  {
+    _id: "66b076f2596ff5eb67883443",
+    url: "shapes1.mp4",
+    filename: "shapes1.mp4",
+    isDefault: false,
+    __v: 0,
+  },
+  {
+    _id: "66b076f2596ff5eb67883444",
+    url: "triangles.mp4",
+    filename: "triangles.mp4",
+    isDefault: false,
+    __v: 0,
+  },
+  {
+    _id: "66b076f2596ff5eb67883445",
+    url: "trianglesblue.mp4",
+    filename: "trianglesblue.mp4",
+    isDefault: false,
+    __v: 0,
+  },
+  {
+    _id: "66b076f2596ff5eb67883446",
+    url: "tunnel.mp4",
+    filename: "tunnel.mp4",
+    isDefault: false,
+    __v: 0,
+  },
+  {
+    _id: "66b076f2596ff5eb67883447",
+    url: "yellowvoid.mp4",
+    filename: "yellowvoid.mp4",
+    isDefault: false,
+    __v: 0,
+  },
+  {
+    _id: "66b122f3da5f426e9162f554",
+    url: "movingblue.mp4",
+    filename: "movingblue.mp4",
+    isDefault: true,
+    __v: 0,
+  },
+];
 
 const Background = () => {
   const { setBackgroundUri } = useAppStore();
@@ -165,7 +274,7 @@ const Background = () => {
   const onNewBackgoundPressButton = async () => {
     const { data } = await getNewBackgroundsFromServer();
     setOpen(true);
-    setMessage(data?.backgrounds + " new backgrounds have been added!");
+    setMessage("New backgrounds have been added!");
     await fetchBackgrounds();
   };
 
@@ -208,8 +317,111 @@ const Background = () => {
             Get New Backgrounds
           </Button>
         </Box>
-        <Box sx={{ height: 400, width: "100%" }}>
-          <DataGrid
+        <Box sx={{ padding: 4 }}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexWrap: "wrap",
+            }}
+          >
+            {rows?.map((item, index) => {
+              return (
+                <Box
+                  className="video-box"
+                  sx={{
+                    height: "300px",
+                    width: "300px",
+                    position: "relative",
+                    border: "1px solid #000",
+                    margin: "10px",
+                  }}
+                >
+                  <video
+                    style={{
+                      height: "100%",
+                      width: "100%",
+                      objectFit: "cover",
+                    }}
+                  >
+                    <source src={generateVideoURL(item?.url)} />
+                  </video>
+                  {item?.isDefault ? (
+                    <Box
+                      sx={{
+                        position: "absolute",
+                        padding: "4px",
+                        top: 0,
+                        left: 0,
+                        backgroundColor: "#1976d2",
+                        color: "white",
+                        fontSize: "16px",
+                        display: item?.isDefault ? "flex" : "none",
+                      }}
+                    >
+                      Default
+                    </Box>
+                  ) : (
+                    <Box
+                      sx={{
+                        position: "absolute",
+                        height: "100%",
+                        width: "100%",
+                        top: 0,
+                        right: 0,
+                        left: 0,
+                        bottom: 0,
+                        backgroundColor: "rgba(0,0,0,0.5)",
+                        display: "none",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                      className="background-button-overlay"
+                    >
+                      <Button
+                        // className="background-button"
+                        variant="contained"
+                        onClick={async () => {
+                          const { status } = await setDefaultBackground(
+                            item?._id
+                          );
+                          if (status === 200) {
+                            setBackgroundUri(generateVideoURL(item?.url));
+                            alert(
+                              "A new background has been successfully set!"
+                            );
+                            navigate("/");
+                          }
+                        }}
+                      >
+                        Set Default
+                      </Button>
+                      <Button
+                        // className="background-button"
+                        variant="contained"
+                        color="error"
+                        onClick={async () => {
+                          const { status } = await removeBackground(item?._id);
+                          if (status === 200) {
+                            await fetchBackgrounds();
+
+                            alert(
+                              "A background has been successfully removed!"
+                            );
+                          }
+                        }}
+                      >
+                        Delete
+                      </Button>
+                    </Box>
+                  )}
+                </Box>
+              );
+            })}
+          </Box>
+
+          {/* <DataGrid
             rows={rows}
             columns={columns}
             initialState={{
@@ -220,7 +432,7 @@ const Background = () => {
             pageSizeOptions={[5, 10]}
             // rowsPerPageOptions={[10]}
             autoPageSize
-          />
+          />*/}
         </Box>
       </Box>
       <Snackbar open={open} autoHideDuration={6000} onClose={handleClose}>
