@@ -114,7 +114,7 @@ export default function Home({ socket }) {
 
   return (
     <Stack spacing={2} sx={{ width: "100%" }}>
-      <CircularProgress />
+      {/* <CircularProgress /> */}
       <Box sx={{ height: "100%", width: "100%" }}>
         <ReactPlayer
           url={generateVideoURL(backgroundUri)}
