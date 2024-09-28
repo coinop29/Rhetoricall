@@ -1,32 +1,28 @@
+
+// src/pages/Home.js
 /* eslint-disable */
-import * as React from "react";
-import { useState, useEffect, Suspense } from "react";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import ReactPlayer from "react-player";
-
-import { Box, CircularProgress } from "@mui/material";
-import Snackbar from "@mui/material/Snackbar";
-import Stack from "@mui/material/Stack";
-import MuiAlert from "@mui/material/Alert";
-import Button from "@mui/material/Button";
-
-import { Canvas } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
+import React, { useState, useEffect, Suspense } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import ReactPlayer from 'react-player';
+import { Box, Snackbar, Stack, Button } from '@mui/material';
+import MuiAlert from '@mui/material/Alert';
+import { Canvas } from '@react-three/fiber';
+import { OrbitControls } from '@react-three/drei';
 import {
   EffectComposer,
   Selection,
   Select,
   Outline,
-} from "@react-three/postprocessing";
+} from '@react-three/postprocessing';
 
-import { Cube } from "../../models/Cube";
-import { ECube1 } from "../../models/Explode_Cube1";
-
-import useAppStore from "../../../store";
-import smallestloop from "../../../assets/audios/smallestloop.mp3";
-import "./Home.scss";
-import { getDefaultBackground } from "../../../services/api";
-import { abstractString, generateVideoURL } from "../../../utils/helper";
+import { Cube } from '../../models/Cube';
+import { ECube1 } from '../../models/Explode_Cube1';
+import useAppStore from '../../../store';
+import smallestloop from '../../../assets/audios/smallestloop.mp3';
+import './Home.scss';
+import { getDefaultBackground } from '../../../services/api';
+import { abstractString, generateVideoURL } from '../../../utils/helper';
+import Text3D from '../../commonComponents/Text3D'; // Import the Text3D component
 
 const Alert = React.forwardRef(function Alert(props, ref) {
   return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
@@ -34,8 +30,9 @@ const Alert = React.forwardRef(function Alert(props, ref) {
 
 export default function Home({ socket }) {
   const [open, setOpen] = useState(false);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState('');
   const [play, setPlay] = useState(false);
+  const [socketMessages, setSocketMessages] = useState([]); // Changed to an array
   const {
     backgroundUri,
     explode,
@@ -56,22 +53,21 @@ export default function Home({ socket }) {
   };
 
   const handleClose = (event, reason) => {
-    if (reason === "clickaway") {
+    if (reason === 'clickaway') {
       return;
     }
-
     setOpen(false);
   };
 
   const handleBackground = () => {
-    navigate("/background");
+    navigate('/background');
   };
 
   const generateRandomFont = () =>
     `/fonts/font (${Math.ceil(Math.random() * 11)}).ttf`;
 
   useEffect(() => {
-    socket.on("messageIncoming", (data) => {
+    socket.on('messageIncoming', (data) => {
       setPlay(true);
       setReset(true);
       const { filtered } = data;
@@ -80,12 +76,23 @@ export default function Home({ socket }) {
       setExplode(display);
 
       setMessage(filtered);
+
+      // Append new message to the array
+      setSocketMessages((prevMessages) => {
+        const messages = [...prevMessages, filtered];
+        if (messages.length > 5) {
+          messages.shift(); // Limit to last 5 messages
+        }
+        return messages;
+      });
+
       handleClick();
     });
+
     (async () => {
-      let url = "";
-      if (pathname === "/public_view" && searchParams.get("background")) {
-        url = searchParams.get("background");
+      let url = '';
+      if (pathname === '/public_view' && searchParams.get('background')) {
+        url = searchParams.get('background');
       } else {
         try {
           const result = await getDefaultBackground();
@@ -99,7 +106,7 @@ export default function Home({ socket }) {
     })();
 
     return () => {
-      socket.off("messageIncoming");
+      socket.off('messageIncoming');
     };
   }, []);
 
@@ -110,29 +117,23 @@ export default function Home({ socket }) {
     }
   }, [play]);
 
-  console.log(generateVideoURL(backgroundUri));
-
   return (
-    <Stack spacing={2} sx={{ width: "100%" }}>
-      {/* <CircularProgress /> */}
-      <Box sx={{ height: "100%", width: "100%" }}>
+    <Stack spacing={2} sx={{ width: '100%' }}>
+      <Box sx={{ height: '100%', width: '100%' }}>
         <ReactPlayer
           url={generateVideoURL(backgroundUri)}
-          // url={
-          //   "https://rhetoricall.site/backgroundvideos/bluebackgroundtunnel.mp4"
-          // }
           loop={true}
           playing={true}
           muted={true}
           width="100%"
           height="100%"
-          style={{ position: "absolute", top: "0px", left: "0px" }}
+          style={{ position: 'absolute', top: '0px', left: '0px' }}
         />
         <div className="canvas-container">
           <Canvas
             gl={{
               antialias: true,
-              powerPreference: "high-performance",
+              powerPreference: 'high-performance',
             }}
             camera={{
               position: [0, 0, 30],
@@ -148,20 +149,34 @@ export default function Home({ socket }) {
               <Selection enabled>
                 <EffectComposer enabled autoClear={false}>
                   <Outline
-                    visibleEdgeColor={"yellow"}
-                    hiddenEdgeColor={"yellow"}
+                    visibleEdgeColor={'yellow'}
+                    hiddenEdgeColor={'yellow'}
                     edgeStrength={5}
                   />
                 </EffectComposer>
 
                 <Select enabled>
-                  {explode && (
-                    <ECube1 font={generateRandomFont()} socket={socket} />
-                  )}
-                  {cube.length > 0 &&
-                    cube.map((item, key) => (
-                      <Cube index={key} key={key} font={generateRandomFont()} />
-                    ))}
+                  {/*{explode && (*/}
+                  {/*  <ECube1 font={generateRandomFont()} socket={socket} />*/}
+                  {/*)}*/}
+                  {/*{cube.length > 0 &&*/}
+                  {/*  cube.map((item, key) => (*/}
+                  {/*    <Cube*/}
+                  {/*      index={key}*/}
+                  {/*      key={key}*/}
+                  {/*      font={generateRandomFont()}*/}
+                  {/*    />*/}
+                  {/*  ))}*/}
+
+                  {/* Render all messages */}
+                  {socketMessages.map((msg, index) => (
+                    <Text3D
+                      key={index}
+                      text={msg}
+                      position={[-10, 10 - index * 15, 0]} // Adjust position for each message
+                      color={0x2f24c1}
+                    />
+                  ))}
                 </Select>
               </Selection>
             </Suspense>
@@ -178,7 +193,7 @@ export default function Home({ socket }) {
           <Alert
             onClose={handleClose}
             severity="success"
-            sx={{ width: "100%" }}
+            sx={{ width: '100%' }}
           >
             {message}
           </Alert>
