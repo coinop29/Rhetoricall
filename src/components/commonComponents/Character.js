@@ -106,7 +106,7 @@ export const characters = {
 };
 
 
-const Character = ({ char, position = [0, 0, 0], color = 0x2f24c1, delay = 0 }) => {
+const Character = ({ char, position = [0, 0, 0], color = '#2f24c1', delay = 0 }) => {
   const groupRef = useRef();
   const upperChar = char.toUpperCase();
   const pixels = characters[upperChar];
