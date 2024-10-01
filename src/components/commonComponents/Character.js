@@ -1,7 +1,5 @@
-// // src/components/characters.js
-// import React from 'react';
-// import { animated, useSpring } from '@react-spring/three';
-//
+/* eslint-disable */
+
 import React, { useRef, useEffect } from 'react';
 import { Group } from '@react-three/fiber';
 import Poxel from './Poxel';

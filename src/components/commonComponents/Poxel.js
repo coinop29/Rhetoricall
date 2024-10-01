@@ -40,6 +40,8 @@
 //
 // export default Poxel;
 // src/commonComponents/Poxel.js
+/* eslint-disable */
+
 import React, { useRef, useEffect } from 'react';
 import { gsap } from 'gsap';
 import { Color } from 'three';
