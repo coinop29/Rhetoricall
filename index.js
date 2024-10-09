@@ -131,6 +131,48 @@ app.post("/api/messageIncoming", urlBodyParser, async (req, res) => {
     });
 });
 
+app.post("/api/whatsAppMessageIncoming", urlBodyParser, async (req, res) => {
+  console.log("request =========>", req);
+  console.log("request body =========>", req.body);
+  const twiml = new MessagingResponse();
+  // AccountSid, NumMedia, NumSegments, RefferralNumMedia, , FromCity, FromCountry, FromState, FromZip, MessageSid, SmsMessageSid, ToCity, ToCountry, Tostate, ToZip, SmsStatus
+  const { Body, From, SmsSid, To } = req.body;
+  // try{
+  // const filteredBody=filter.clean(Body),
+  const item = {
+    sid: SmsSid,
+    from: From,
+    to: To,
+    body: Body,
+    filtered: clean(Body),
+  };
+
+  const result = itemSchema.validate(item);
+  console.log("result ======>", result, item);
+  if (result.error) {
+    twiml.message("Invalid data type");
+    res.type("text/xml").send(twiml.toString());
+    return;
+  }
+  const isExists = await checkPhoneNumber(item.from);
+
+  insertItem(item)
+    .then(() => {
+      console.log("item saved");
+      io.emit("messageIncoming", item);
+      if (isExists) {
+        res.status(200).send("success");
+      } else {
+        twiml.message("Thanks for your contribution!");
+        res.type("text/xml").send(twiml.toString());
+      }
+    })
+    .catch((error) => {
+      console.log(error);
+      res.status(500).end();
+    });
+});
+
 server.listen(PORT, () => {
   console.log(`server is running on port ${PORT}`);
 });
