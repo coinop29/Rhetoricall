@@ -49,7 +49,7 @@
 //
 //     const handleClick = () => {
 //         setOpen(true);
-//     };
+//         };
 //
 //     const handleClose = (event, reason) => {
 //         if (reason === 'clickaway') {
@@ -71,10 +71,17 @@
 //             setReset(true);
 //             const {filtered} = data;
 //             addHistory(filtered);
-//             const display = abstractString(filtered);
+//             
+//             // Handle both text and image messages
+//             let displayText = filtered;
+//             if (isImageMessage(filtered)) {
+//                 displayText = 'Image message received';
+//             }
+//             
+//             const display = abstractString(displayText);
 //             setExplode(display);
 //
-//             setMessage(filtered);
+//             setMessage(getDisplayText(filtered));
 //
 //             // Append new message to the array
 //             setSocketMessages((prevMessages) => {
@@ -93,15 +100,15 @@
 //             if (pathname === '/public_view' && searchParams.get('background')) {
 //                 url = searchParams.get('background');
 //             } else {
-//                 try {
-//                     const result = await getDefaultBackground();
-//                     const {data} = result;
-//                     url = data.url;
-//                     setBackgroundUri(`${url}`);
-//                 } catch (e) {
-//                     console.log(e);
-//                 }
+//             try {
+//                 const result = await getDefaultBackground();
+//                 const {data} = result;
+//                 url = data.url;
+//                 setBackgroundUri(`${url}`);
+//             } catch (e) {
+//                 console.log(e);
 //             }
+//         }
 //         })();
 //
 //         return () => {
@@ -165,7 +172,7 @@
 //                                     {/*      key={key}*/}
 //                                     {/*      font={generateRandomFont()}*/}
 //                                     {/*    />*/}
-//                                     {/*  ))}*/}
+//                                     {/*)}*/}
 //
 //                                     {/* Render all messages */}
 //                                     {socketMessages.map((msg, index) => (
@@ -192,9 +199,10 @@
 //                     <Alert
 //                         onClose={handleClose}
 //                         severity="success"
-//                         sx={{width: '100%'}}
+//                             sx={{width: '100%'}}
 //                     >
 //                         {message}
+//                     </Alert>
 //                     </Alert>
 //                 </Snackbar>
 //             </Box>
@@ -208,7 +216,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import ReactPlayer from 'react-player';
-import { Box, Snackbar, Stack, Button } from '@mui/material';
+import { Box, Snackbar, Stack, Button, Chip } from '@mui/material';
 import MuiAlert from '@mui/material/Alert';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
@@ -224,7 +232,14 @@ import smallestloop from '../../../assets/audios/smallestloop.mp3';
 import './Home.scss';
 import { getDefaultBackground } from '../../../services/api';
 import { abstractString, generateVideoURL } from '../../../utils/helper';
-import Text3D from '../../commonComponents/Text3D';
+import { Message3D } from '../../commonComponents';
+import { 
+  isImageMessage, 
+  getDisplayText, 
+  processIncomingMessage,
+  getDisplayMode,
+  getImageGenerationStatus
+} from '../../../utils/messageUtils';
 
 const Alert = React.forwardRef(function Alert(props, ref) {
   return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
@@ -235,6 +250,7 @@ export default function Home({ socket }) {
   const [message, setMessage] = useState('');
   const [play, setPlay] = useState(false);
   const [socketMessages, setSocketMessages] = useState([]);
+  const [currentDisplayMode, setCurrentDisplayMode] = useState('text');
   const {
     backgroundUri,
     addHistory,
@@ -272,19 +288,30 @@ export default function Home({ socket }) {
   };
 
   useEffect(() => {
+    // Listen for incoming messages
     socket.on('messageIncoming', (data) => {
       setPlay(true);
       setReset(true);
       const { filtered } = data;
-      addHistory(filtered);
-      const display = abstractString(filtered);
+      
+      // Process the incoming message
+      const processedMessage = processIncomingMessage(filtered);
+      addHistory(processedMessage);
+      
+      // Handle both text and image messages
+      let displayText = processedMessage.text;
+      if (processedMessage.type === 'image') {
+        displayText = 'Image message received';
+      }
+      
+      const display = abstractString(displayText);
       setExplode(display);
 
-      setMessage(filtered);
+      setMessage(getDisplayText(processedMessage));
 
       // Append new message to the array
       setSocketMessages((prevMessages) => {
-        const messages = [...prevMessages, filtered];
+        const messages = [...prevMessages, processedMessage];
         if (messages.length > 5) {
           messages.shift(); // Limit to last 5 messages
         }
@@ -292,6 +319,13 @@ export default function Home({ socket }) {
       });
 
       handleClick();
+    });
+
+    // Listen for display mode changes
+    socket.on('displayModeChanged', (data) => {
+      const { mode } = data;
+      setCurrentDisplayMode(mode);
+      console.log('Display mode changed to:', mode);
     });
 
     (async () => {
@@ -312,6 +346,7 @@ export default function Home({ socket }) {
 
     return () => {
       socket.off('messageIncoming');
+      socket.off('displayModeChanged');
     };
   }, []);
 
@@ -321,6 +356,11 @@ export default function Home({ socket }) {
       audio.loop = true;
     }
   }, [play]);
+
+  // Get status color for display mode chip
+  const getStatusColor = (mode) => {
+    return mode === 'image' ? 'success' : 'default';
+  };
 
   return (
     <Stack spacing={2} sx={{ width: '100%' }}>
@@ -334,6 +374,26 @@ export default function Home({ socket }) {
           height="100%"
           style={{ position: 'absolute', top: '0px', left: '0px' }}
         />
+        
+        {/* Display Mode Indicator */}
+        <Box sx={{ 
+          position: 'absolute', 
+          top: '20px', 
+          right: '20px', 
+          zIndex: 1000 
+        }}>
+          <Chip
+            label={`Mode: ${currentDisplayMode.toUpperCase()}`}
+            color={getStatusColor(currentDisplayMode)}
+            variant="filled"
+            sx={{ 
+              backgroundColor: currentDisplayMode === 'image' ? '#4caf50' : '#757575',
+              color: 'white',
+              fontWeight: 'bold'
+            }}
+          />
+        </Box>
+        
         <div className="canvas-container">
           <Canvas
             gl={{
@@ -361,28 +421,18 @@ export default function Home({ socket }) {
                 </EffectComposer>
 
                 <Select enabled>
-                  {/* Render all messages */}
-                  {/*{socketMessages.map((msg, index) => (*/}
-                  {/*  <Text3D*/}
-                  {/*    key={index}*/}
-                  {/*    text={msg}*/}
-                  {/*    position={[-10, 10 - index * 5, 0]} // Adjust position for each message*/}
-                  {/*    color="#2f24c1"*/}
-                  {/*    selected={selectedMessageIndex === index}*/}
-                  {/*    onClick={() => handleSelectMessage(index)}*/}
-                  {/*  />*/}
-                  {/*))}*/}
+                  {/* Render all messages using Message3D component */}
                   {socketMessages.map((msg, index) => (
-  <Text3D
-    key={index}
-    text={msg}
-    position={[0, index * -2, 0]} // Slightly offset each message vertically
-    color="#2f24c1"
-    selected={selectedMessageIndex === index}
-    onClick={() => handleSelectMessage(index)}
-  />
-))}
-
+                    <Message3D
+                      key={index}
+                      message={msg}
+                      position={[0, index * -3, 0]} // Adjust spacing for images
+                      scale={isImageMessage(msg) ? [1, 1, 1] : [0.9, 1, 0.5]} // Different scales for images vs text
+                      color="#2f24c1"
+                      selected={selectedMessageIndex === index}
+                      onClick={() => handleSelectMessage(index)}
+                    />
+                  ))}
                 </Select>
               </Selection>
             </Suspense>
