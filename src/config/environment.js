@@ -10,7 +10,10 @@ const config = {
            (window.location.hostname === 'localhost' ? 'http://localhost:3000/' : 
             `https://${window.location.hostname}/`),
   
-  // WebSocket configuration
+  // Video Server URL - use the dedicated video server
+  VIDEO_SERVER: process.env.REACT_APP_VIDEO_SERVER || 'https://rhetoricall.site/backgroundvideos',
+  
+  // WebSocket configuration - use the configured path
   WEBSOCKET_PATH: process.env.REACT_APP_WEBSOCKET_PATH || '/ws',
   
   // Environment detection - fix for Railway deployment

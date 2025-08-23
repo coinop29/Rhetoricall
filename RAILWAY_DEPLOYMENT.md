@@ -8,16 +8,20 @@ Set these in your Railway project dashboard:
 ```bash
 REACT_APP_BACKEND_URL=https://your-backend-domain.com/
 REACT_APP_APP_URL=https://your-frontend-domain.com/
+REACT_APP_VIDEO_SERVER=https://your-video-server.com/backgroundvideos
 REACT_APP_WEBSOCKET_PATH=/ws
 ```
 
-### **Example Values for Railway**
+### **Example Values for Your Setup**
 ```bash
-# If your backend is on Railway
-REACT_APP_BACKEND_URL=https://your-backend-app.up.railway.app/
+# Backend server (handles WebSocket and API calls)
+REACT_APP_BACKEND_URL=https://rhetoricall-production.up.railway.app/
 
-# If your frontend is on Railway  
-REACT_APP_APP_URL=https://your-frontend-app.up.railway.app/
+# Frontend server (serves React app)
+REACT_APP_APP_URL=https://rhetoricall-production-e792.up.railway.app/
+
+# Video server (serves background videos and static assets)
+REACT_APP_VIDEO_SERVER=https://rhetoricall.site/backgroundvideos
 
 # WebSocket path (usually /ws)
 REACT_APP_WEBSOCKET_PATH=/ws
@@ -26,7 +30,8 @@ REACT_APP_WEBSOCKET_PATH=/ws
 ### **Important: URL Structure**
 - **Frontend**: `https://rhetoricall-production-e792.up.railway.app/`
 - **Backend**: `https://rhetoricall-production.up.railway.app/`
-- **Static Files**: Served from frontend domain (background videos, models, etc.)
+- **Video Server**: `https://rhetoricall.site/backgroundvideos`
+- **Static Files**: Served from video server (background videos, models, etc.)
 - **WebSocket**: Connects to backend domain
 
 ## 🔧 **Railway Configuration**
@@ -49,12 +54,17 @@ Railway automatically sets `PORT` environment variable.
 ### **Frontend Domain**
 - Railway will provide: `https://your-app-name.up.railway.app`
 - Set this as `REACT_APP_APP_URL`
-- This serves your React app and static files
+- This serves your React app
 
 ### **Backend Domain**
 - Your backend server domain
 - Set this as `REACT_APP_BACKEND_URL`
 - This handles WebSocket connections and API calls
+
+### **Video Server Domain**
+- Your dedicated video/static file server
+- Set this as `REACT_APP_VIDEO_SERVER`
+- This serves background videos, models, and other static assets
 
 ## 🔌 **WebSocket Configuration**
 
@@ -75,18 +85,14 @@ wss://your-backend-domain.com/ws
 ### **Public Assets**
 - `favicon.ico` - Should be served from `/public/`
 - `manifest.json` - Should be served from `/public/`
-- Background videos - Should be served from `/public/backgroundvideos/`
+- Background videos - Served from `REACT_APP_VIDEO_SERVER`
 
-### **File Structure**
+### **File Structure on Video Server**
 ```
-public/
-├── favicon.ico
-├── manifest.json
-├── backgroundvideos/
-│   ├── grid2.mp4
-│   └── other-videos.mp4
-└── models/
-    └── *.glb files
+https://rhetoricall.site/backgroundvideos/
+├── spiral.mp4
+├── grid2.mp4
+└── other-videos.mp4
 ```
 
 ## 🚨 **Common Issues & Solutions**
@@ -97,21 +103,21 @@ public/
 - Check WebSocket path configuration
 - Ensure backend serves WebSocket at `/ws` endpoint
 
-### **2. 502 Errors on Static Files**
-- Ensure files exist in `/public/` directory
-- Check Railway static file serving configuration
-- Verify file paths in your code
-- Static files should be served from frontend domain
+### **2. Background Video Loading Issues**
+- Videos should load from `REACT_APP_VIDEO_SERVER`
+- Check that video files exist on the video server
+- Verify `generateVideoURL` function is working correctly
+- Example: `https://rhetoricall.site/backgroundvideos/spiral.mp4`
 
-### **3. Environment Variables Not Working**
+### **3. 502 Errors on Static Files**
+- Ensure files exist in the correct locations
+- Check video server is accessible
+- Verify file paths in your code
+
+### **4. Environment Variables Not Working**
 - Variables must start with `REACT_APP_`
 - Redeploy after changing environment variables
 - Check Railway logs for errors
-
-### **4. Background Video Loading Issues**
-- Videos should load from frontend domain (`REACT_APP_APP_URL`)
-- Check that video files exist in `/public/backgroundvideos/`
-- Verify `generateVideoURL` function is working correctly
 
 ### **5. npm ci Build Failures**
 If you encounter `npm ci` failures during build:
@@ -143,12 +149,11 @@ npm install
 - [ ] Set all required environment variables
 - [ ] Verify backend is accessible
 - [ ] Check WebSocket endpoint is working
-- [ ] Ensure static files are in `/public/`
+- [ ] Ensure video server is accessible
+- [ ] Verify background videos load correctly
 - [ ] Deploy and test functionality
 - [ ] Check Railway logs for errors
 - [ ] If build fails, try npm ci solutions above
-- [ ] Verify background videos load correctly
-- [ ] Test WebSocket connection
 
 ## 🔍 **Debugging**
 
@@ -157,6 +162,7 @@ npm install
 // In browser console
 console.log('Backend URL:', process.env.REACT_APP_BACKEND_URL);
 console.log('App URL:', process.env.REACT_APP_APP_URL);
+console.log('Video Server:', process.env.REACT_APP_VIDEO_SERVER);
 ```
 
 ### **Check WebSocket Connection**
@@ -183,4 +189,12 @@ If build continues to fail:
 console.log('Current config:', config);
 console.log('Background URI:', backgroundUri);
 console.log('Generated video URL:', generateVideoURL(backgroundUri));
+```
+
+### **Video Server Test**
+```javascript
+// Test if video server is accessible
+fetch('https://rhetoricall.site/backgroundvideos/spiral.mp4')
+  .then(response => console.log('Video server accessible:', response.ok))
+  .catch(error => console.error('Video server error:', error));
 ```

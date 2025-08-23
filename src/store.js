@@ -3,7 +3,7 @@ import produce from "immer";
 import config from "./config/environment";
 
 const useAppStore = create((set) => ({
-  backgroundUri: `${config.APP_URL}1.mp4`,
+  backgroundUri: `${config.VIDEO_SERVER}/spiral.mp4`,
   history: [],
   // explode: [],
   explode: "",

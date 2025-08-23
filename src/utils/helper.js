@@ -11,6 +11,11 @@ const generateVideoURL = (fileName) => {
     return fileName;
   }
   
+  // Use the dedicated video server for background videos
+  if (fileName && fileName.includes('backgroundvideos')) {
+    return `${config.VIDEO_SERVER}/${fileName.split('/').pop()}`;
+  }
+  
   // Otherwise, construct the URL using the app URL
   return `${config.APP_URL}${fileName}`;
 };
