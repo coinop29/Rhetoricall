@@ -1,8 +1,9 @@
-import create from "zustand";
+import { create } from "zustand";
 import produce from "immer";
+import config from "../config/environment";
 
 const useAppStore = create((set) => ({
-  backgroundUri: `${process.env.REACT_APP_APP_URL}1.mp4`,
+  backgroundUri: `${config.APP_URL}1.mp4`,
   history: [],
   // explode: [],
   explode: "",

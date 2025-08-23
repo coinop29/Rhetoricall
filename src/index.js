@@ -5,12 +5,18 @@ import "./index.css";
 import App from "./App";
 import reportWebVitals from "./reportWebVitals";
 import { io } from "socket.io-client";
+import config from "./config/environment";
 
-const socket = io(process.env.REACT_APP_BACKEND_URL, { autoConnect: true });
-console.log(
-  process.env.REACT_APP_BACKEND_URL,
-  "process.env.REACT_APP_BACKEND_URL"
-);
+// Create socket connection with fallback URL
+const socket = io(config.BACKEND_URL, { 
+  autoConnect: true,
+  path: config.WEBSOCKET_PATH,
+  transports: ['websocket', 'polling']
+});
+
+console.log('🔌 Socket connecting to:', config.BACKEND_URL);
+console.log('🌍 Environment:', config.IS_PRODUCTION ? 'Production' : 'Development');
+
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
   <React.StrictMode>
