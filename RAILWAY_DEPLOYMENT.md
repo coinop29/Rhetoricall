@@ -11,7 +11,7 @@ REACT_APP_APP_URL=https://your-frontend-domain.com/
 REACT_APP_WEBSOCKET_PATH=/ws
 ```
 
-### **Example Values**
+### **Example Values for Railway**
 ```bash
 # If your backend is on Railway
 REACT_APP_BACKEND_URL=https://your-backend-app.up.railway.app/
@@ -22,6 +22,12 @@ REACT_APP_APP_URL=https://your-frontend-app.up.railway.app/
 # WebSocket path (usually /ws)
 REACT_APP_WEBSOCKET_PATH=/ws
 ```
+
+### **Important: URL Structure**
+- **Frontend**: `https://rhetoricall-production-e792.up.railway.app/`
+- **Backend**: `https://rhetoricall-production.up.railway.app/`
+- **Static Files**: Served from frontend domain (background videos, models, etc.)
+- **WebSocket**: Connects to backend domain
 
 ## 🔧 **Railway Configuration**
 
@@ -43,10 +49,12 @@ Railway automatically sets `PORT` environment variable.
 ### **Frontend Domain**
 - Railway will provide: `https://your-app-name.up.railway.app`
 - Set this as `REACT_APP_APP_URL`
+- This serves your React app and static files
 
 ### **Backend Domain**
 - Your backend server domain
 - Set this as `REACT_APP_BACKEND_URL`
+- This handles WebSocket connections and API calls
 
 ## 🔌 **WebSocket Configuration**
 
@@ -87,18 +95,25 @@ public/
 - Check `REACT_APP_BACKEND_URL` is correct
 - Verify backend is running and accessible
 - Check WebSocket path configuration
+- Ensure backend serves WebSocket at `/ws` endpoint
 
 ### **2. 502 Errors on Static Files**
 - Ensure files exist in `/public/` directory
 - Check Railway static file serving configuration
 - Verify file paths in your code
+- Static files should be served from frontend domain
 
 ### **3. Environment Variables Not Working**
 - Variables must start with `REACT_APP_`
 - Redeploy after changing environment variables
 - Check Railway logs for errors
 
-### **4. npm ci Build Failures**
+### **4. Background Video Loading Issues**
+- Videos should load from frontend domain (`REACT_APP_APP_URL`)
+- Check that video files exist in `/public/backgroundvideos/`
+- Verify `generateVideoURL` function is working correctly
+
+### **5. npm ci Build Failures**
 If you encounter `npm ci` failures during build:
 
 #### **Solution A: Use .npmrc Configuration**
@@ -132,6 +147,8 @@ npm install
 - [ ] Deploy and test functionality
 - [ ] Check Railway logs for errors
 - [ ] If build fails, try npm ci solutions above
+- [ ] Verify background videos load correctly
+- [ ] Test WebSocket connection
 
 ## 🔍 **Debugging**
 
@@ -159,3 +176,11 @@ If build continues to fail:
 2. Try using `package-docker.json` temporarily
 3. Verify all dependencies are compatible
 4. Consider using `npm install` instead of `npm ci` in Railway
+
+### **URL Debugging**
+```javascript
+// Check current configuration
+console.log('Current config:', config);
+console.log('Background URI:', backgroundUri);
+console.log('Generated video URL:', generateVideoURL(backgroundUri));
+```

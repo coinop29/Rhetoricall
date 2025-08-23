@@ -13,9 +13,9 @@ const config = {
   // WebSocket configuration
   WEBSOCKET_PATH: process.env.REACT_APP_WEBSOCKET_PATH || '/ws',
   
-  // Environment detection
-  IS_PRODUCTION: process.env.NODE_ENV === 'production',
-  IS_DEVELOPMENT: process.env.NODE_ENV === 'development'
+  // Environment detection - fix for Railway deployment
+  IS_PRODUCTION: process.env.NODE_ENV === 'production' || window.location.hostname.includes('railway.app'),
+  IS_DEVELOPMENT: process.env.NODE_ENV === 'development' && !window.location.hostname.includes('railway.app')
 };
 
 // Log configuration in development
