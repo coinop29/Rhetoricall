@@ -98,6 +98,31 @@ public/
 - Redeploy after changing environment variables
 - Check Railway logs for errors
 
+### **4. npm ci Build Failures**
+If you encounter `npm ci` failures during build:
+
+#### **Solution A: Use .npmrc Configuration**
+The project includes a `.npmrc` file with:
+```bash
+legacy-peer-deps=true
+strict-peer-dependencies=false
+auto-install-peers=true
+```
+
+#### **Solution B: Use package-docker.json**
+For Railway builds, you can temporarily rename:
+```bash
+mv package.json package.json.backup
+mv package-docker.json package.json
+```
+
+#### **Solution C: Clear npm Cache**
+```bash
+npm cache clean --force
+rm -rf node_modules package-lock.json
+npm install
+```
+
 ## 📋 **Deployment Checklist**
 
 - [ ] Set all required environment variables
@@ -106,6 +131,7 @@ public/
 - [ ] Ensure static files are in `/public/`
 - [ ] Deploy and test functionality
 - [ ] Check Railway logs for errors
+- [ ] If build fails, try npm ci solutions above
 
 ## 🔍 **Debugging**
 
@@ -126,3 +152,10 @@ console.log('App URL:', process.env.REACT_APP_APP_URL);
 - Go to Railway dashboard
 - Check deployment logs
 - Look for build errors
+
+### **npm ci Troubleshooting**
+If build continues to fail:
+1. Check Railway logs for specific error messages
+2. Try using `package-docker.json` temporarily
+3. Verify all dependencies are compatible
+4. Consider using `npm install` instead of `npm ci` in Railway
