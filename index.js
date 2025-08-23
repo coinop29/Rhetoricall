@@ -48,6 +48,12 @@ app.use(bodyParser.json());
 app.use(routes);
 app.use("/static", express.static(path.join(__dirname, "public")));
 
+// Add request logging middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  next();
+});
+
 // Initialize Twilio and other services
 init();
 initTwilio();
@@ -88,18 +94,26 @@ app.get("/ws/", (req, res) => {
   res.status(200).send("WebSocket endpoint ready");
 });
 
+// Handle WebSocket upgrade requests
+app.get("/ws/*", (req, res) => {
+  res.status(200).send("WebSocket endpoint ready");
+});
+
 const server = require("http").createServer(app);
 const io = require("socket.io")(server, {
   cors: {
     origin: "*",
   },
+  path: "/ws" // Add this line to match your frontend's expected path
 });
 
 io.on("connection", (socket) => {
-  console.log("new connection");
+  console.log("new connection from:", socket.id);
+  console.log("client connected with path:", socket.handshake.url);
   
   // Send current display mode to newly connected clients
   socket.emit("displayModeChanged", { mode: globalDisplayMode });
+  console.log("sent display mode:", globalDisplayMode);
   
   socket.on("history", (msg) => {
     io.emit("historyChanged", msg);
@@ -113,6 +127,10 @@ io.on("connection", (socket) => {
       console.log(`Display mode changed via socket to: ${globalDisplayMode}`);
       io.emit("displayModeChanged", { mode: globalDisplayMode });
     }
+  });
+  
+  socket.on("disconnect", (reason) => {
+    console.log("client disconnected:", socket.id, "reason:", reason);
   });
 });
 
