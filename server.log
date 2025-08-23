@@ -1,0 +1,13 @@
+(node:95176) [MONGODB DRIVER] Warning: useNewUrlParser is a deprecated option: useNewUrlParser has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:95176) [MONGODB DRIVER] Warning: useUnifiedTopology is a deprecated option: useUnifiedTopology has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version
+server is running on port 5000
+Display mode changed to: text
+Display mode changed to: image
+Testing image generation for prompt: A magical forest with glowing mushrooms
+Generating image for prompt: A magical forest with glowing mushrooms
+Connected to MongoDB
+Connected to MongoDB
+mongodb server is connected
+Image generated successfully: https://replicate.delivery/yhqm/Dw7eXnTwvgzUSazkMOfrHuJDoJDPljmLmNLmWJpoCbTzV3NVA/out-0.png
+new connection

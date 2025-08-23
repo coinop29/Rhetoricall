@@ -4,7 +4,9 @@
   "description": "A sample node application",
   "main": "index.js",
   "scripts": {
-    "start": "nodemon index.js"
+    "start": "nodemon index.js",
+    "test:image": "node test-image-generation.js",
+    "test:comprehensive": "node test-comprehensive.js"
   },
   "author": "Patricio Nunez",
   "license": "ISC",
@@ -26,6 +28,7 @@
     "node-fetch": "^3.3.2",
     "nodemon": "^2.0.19",
     "profanity-cleaner": "^0.0.3",
+    "replicate": "^1.1.0",
     "socket.io": "^4.5.1",
     "twilio": "^3.83.1"
   },
