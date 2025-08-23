@@ -78,6 +78,16 @@ mongoose.connection.on("disconnected", () => {
   console.log("Disconnected from MongoDB");
 });
 
+// Add WebSocket endpoint for frontend compatibility
+app.get("/ws", (req, res) => {
+  res.status(200).send("WebSocket endpoint ready");
+});
+
+// Add WebSocket upgrade endpoint
+app.get("/ws/", (req, res) => {
+  res.status(200).send("WebSocket endpoint ready");
+});
+
 const server = require("http").createServer(app);
 const io = require("socket.io")(server, {
   cors: {
@@ -108,6 +118,16 @@ io.on("connection", (socket) => {
 
 app.get("/", (req, res) => {
   res.status(200).send("Hello, World!");
+});
+
+// Health check endpoint for Railway
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "healthy",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || "development"
+  });
 });
 
 // Test endpoint for image generation
