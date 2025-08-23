@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import produce from "immer";
-import config from "../config/environment";
+import config from "./config/environment";
 
 const useAppStore = create((set) => ({
   backgroundUri: `${config.APP_URL}1.mp4`,
