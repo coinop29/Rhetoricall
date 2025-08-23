@@ -11,9 +11,9 @@ const generateVideoURL = (fileName) => {
     return fileName;
   }
   
-  // Use the dedicated video server for background videos
-  if (fileName && fileName.includes('backgroundvideos')) {
-    return `${config.VIDEO_SERVER}/${fileName.split('/').pop()}`;
+  // If fileName is a video file (ends with .mp4, .webm, etc.), use video server
+  if (fileName && /\.(mp4|webm|avi|mov|mkv)$/i.test(fileName)) {
+    return `${config.VIDEO_SERVER}/${fileName}`;
   }
   
   // Otherwise, construct the URL using the app URL

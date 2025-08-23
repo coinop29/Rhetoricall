@@ -1,43 +1,32 @@
 /* eslint-disable */
-import * as React from "react";
-import { useState, useEffect } from "react";
-import Box from "@mui/material/Box";
-import { FileUploader } from "react-drag-drop-files";
+import React, { useState, useEffect } from "react";
+import { Box, Button, Typography, Paper, Chip } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-import { DataGrid } from "@mui/x-data-grid";
 import axios from "axios";
-
 import UploadService from "../../../services/upload.service";
 import useAppStore from "../../../store";
-import "./Footer.scss";
-import Button from "@mui/material/Button";
-const API_URL = `${process.env.REACT_APP_BACKEND_URL}api/`;
-const VIDEO_SERVER = `${process.env.REACT_APP_VIDEO_SERVER}/`;
+import config from "../../../config/environment";
 
-export default function Footer() {
-  const [file, setFile] = useState(null);
-  const [fileBlob, setFileBlob] = useState(null);
-  const [loading, setLoading] = useState(false);
+const API_URL = `${process.env.REACT_APP_BACKEND_URL}api/`;
+const VIDEO_SERVER = config.VIDEO_SERVER;
+
+const Footer = () => {
   const { backgroundUri, setBackgroundUri } = useAppStore();
   const navigate = useNavigate();
 
+  const [file, setFile] = useState(null);
+  const [fileBlob, setFileBlob] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState([]);
 
   const setDefaultBackground = async (_id) => {
     const response = await axios.post(API_URL + "set_default", { _id });
-
     return response;
   };
 
   const removeBackground = async (_id) => {
     const response = await axios.post(API_URL + "delete", { _id });
     return response;
-  };
-  const getNewBackgroundsFromServer = async () => {
-    const response = await axios.get(
-      API_URL + "getBackgroundsFromExternalServer"
-    );
-    // return response;
   };
 
   const columns = [
@@ -73,17 +62,14 @@ export default function Footer() {
               alignItems: "center",
               gap: "5px",
             }}
-            // onClick={() => {
-            //   navigator.clipboard.writeText(
-            //     `${process.env.REACT_APP_APP_URL}public_view?background=${params.row.url}`
-            //   );
-            // }}
+            onClick={() => {
+              navigator.clipboard.writeText(`${VIDEO_SERVER}/${params.row.url}`);
+            }}
           >
-            {/* {`${process.env.REACT_APP_APP_URL}public_view?background=${params.row.url}`} */}
             <video style={{ width: "60px", height: "60px" }}>
-              <source src={`${VIDEO_SERVER}${params.row.url}`} />
+              <source src={`${VIDEO_SERVER}/${params.row.url}`} />
             </video>
-            {`${VIDEO_SERVER}${params.row.url}`}
+            {`${VIDEO_SERVER}/${params.row.url}`}
           </div>
         );
       },
@@ -101,48 +87,45 @@ export default function Footer() {
       field: "action",
       headerName: "Action",
       width: 240,
-      editable: false,
       renderCell: (params) => {
         return (
-          !params.row.isDefault && (
-            <div>
-              <button
-                onClick={async () => {
-                  const { status } = await setDefaultBackground(params.row._id);
-                  if (status === 200) {
-                    setBackgroundUri(`${VIDEO_SERVER}${params.row.url}`);
-                    alert("A new background has been successfully set!");
-                    navigate("/");
-                  }
-                }}
-              >
-                Set Background
-              </button>
-              {`  |  `}
-              <button
-                onClick={async () => {
-                  const { status } = await removeBackground(params.row._id);
-                  if (status === 200) {
-                    const results = await axios.get(API_URL + "backgrounds");
-                    const { data } = results;
-                    const rows = data.map((background, key) => {
-                      const { _id, url, isDefault } = background;
+          <div>
+            <button
+              onClick={async () => {
+                const { status } = await setDefaultBackground(params.row._id);
+                if (status === 200) {
+                  setBackgroundUri(`${VIDEO_SERVER}/${params.row.url}`);
+                  alert("A new background has been successfully set!");
+                  navigate("/");
+                }
+              }}
+            >
+              Set Background
+            </button>
+            {`  |  `}
+            <button
+              onClick={async () => {
+                const { status } = await removeBackground(params.row._id);
+                if (status === 200) {
+                  const results = await axios.get(API_URL + "backgrounds");
+                  const { data } = results;
+                  const rows = data.map((background, key) => {
+                    const { _id, url, isDefault } = background;
 
-                      return { id: key + 1, url, isDefault, _id };
-                    });
+                    return { id: key + 1, url, isDefault, _id };
+                  });
 
-                    setRows(rows);
+                  setRows(rows);
 
-                    await new Promise((resolve) => setTimeout(resolve, 500));
+                  await new Promise((resolve) => setTimeout(resolve, 500));
 
-                    alert("A background has been successfully removed!");
-                  }
-                }}
-              >
-                Remove
-              </button>
-            </div>
-          )
+                  alert("A background has been successfully removed!");
+                }
+              }}
+            >
+              Remove
+            </button>
+          </div>
         );
       },
     },
@@ -174,7 +157,8 @@ export default function Footer() {
   const handleUpload = async () => {
     setLoading(true);
     const { url, filename } = await UploadService.uploadBackground(file);
-    setBackgroundUri(`${process.env.REACT_APP_BACKEND_URL}static/${filename}`);
+    // Use the video server for uploaded files
+    setBackgroundUri(`${VIDEO_SERVER}/${filename}`);
     navigate("/");
 
     return filename;
@@ -185,19 +169,7 @@ export default function Footer() {
     console.log(err);
     return;
   };
-  // const getVideos = () => {
-  //   fetch("https://rhetoricall.site/backgroundvideos/")
-  //     .then((response) => response.text())
-  //     .then((data) => {
-  //       const parser = new DOMParser();
-  //       const doc = parser.parseFromString(data, "text/html");
-  //       const links = Array.from(doc.querySelectorAll("a"))
-  //         .map((link) => link.getAttribute("href"))
-  //         .filter((href) => href.endsWith(".mp4"));
-  //       console.log(links, data, response);
-  //       // setVideos(links);
-  //     });
-  // };
+
   return (
     <Box
       className="Footer"
@@ -207,80 +179,133 @@ export default function Footer() {
       }}
     >
       <Box
-        component="footer"
+        className="Footer-header"
         sx={{
-          py: 3,
-          px: 2,
-          mt: "auto",
-          backgroundColor: (theme) =>
-            theme.palette.mode === "light"
-              ? theme.palette.grey[200]
-              : theme.palette.grey[800],
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: "20px",
+          backgroundColor: "#f5f5f5",
         }}
       >
-        <Button
-          // className="background-button"
-          variant="contained"
-          onClick={getNewBackgroundsFromServer}
-        >
-          Get New Backgrounds
-        </Button>
-        {/* {fileBlob ? (
-          <Box
-            sx={{
-              py: 3,
-              px: 2,
-
-              width: "200px",
-            }}
-          >
-            <video width="100%" height="100%">
-              <source src={fileBlob} type="video/mp4" />
-            </video>
-            <Box sx={{ display: "flex", alignItems: "center" }}>
-              <Button
-                variant="contained"
-                onClick={handleUpload}
-                disabled={loading}
-              >
-                Upload
-              </Button>
-              <Button
-                variant="outlined"
-                sx={{ ml: "10px" }}
-                onClick={() => setFileBlob(null)}
-              >
-                Cancel
-              </Button>
-            </Box>
-          </Box>
-        ) : (
-          <FileUploader
-            handleChange={handleChange}
-            name="file"
-            types={["mp4"]}
-            label="Upload or drop a mp4 file to replace the background"
-            onTypeError={handleTypeError}
+        <Typography variant="h6">Background Management</Typography>
+        <Box>
+          <input
+            type="file"
+            accept=".mp4"
+            onChange={(e) => handleChange(e.target.files[0])}
+            style={{ display: "none" }}
+            id="file-upload"
           />
-        )} */}
-        {/* <Container>
-          <Typography variant="body1">SMS 3D Visualization</Typography>
-          <Copyright />
-        </Container> */}
+          <label htmlFor="file-upload">
+            <Button
+              variant="contained"
+              component="span"
+              disabled={loading}
+              sx={{ mr: 1 }}
+            >
+              {loading ? "Uploading..." : "Choose File"}
+            </Button>
+          </label>
+          {file && (
+            <Button
+              variant="contained"
+              onClick={handleUpload}
+              disabled={loading}
+            >
+              Upload
+            </Button>
+          )}
+        </Box>
       </Box>
-      <div style={{ height: 400, width: "100%" }}>
-        <DataGrid
-          rows={rows}
-          columns={columns}
-          initialState={{
-            pagination: {
-              paginationModel: { page: 0, pageSize: 10 },
-            },
-          }}
-          pageSizeOptions={[10]}
-          autoPageSize
-        />
-      </div>
+
+      <Box sx={{ p: 2 }}>
+        <Typography variant="h6" gutterBottom>
+          Current Background: {backgroundUri}
+        </Typography>
+        
+        {fileBlob && (
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="subtitle2" gutterBottom>
+              Preview:
+            </Typography>
+            <video
+              controls
+              style={{ width: "300px", height: "200px" }}
+              src={fileBlob}
+            />
+          </Box>
+        )}
+
+        <Box sx={{ mt: 2 }}>
+          <Typography variant="h6" gutterBottom>
+            Available Backgrounds
+          </Typography>
+          <Box sx={{ maxHeight: "400px", overflow: "auto" }}>
+            {rows.map((row, index) => (
+              <Box
+                key={row._id}
+                sx={{
+                  p: 2,
+                  mb: 1,
+                  border: "1px solid #ddd",
+                  borderRadius: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 2,
+                }}
+              >
+                <Typography variant="body2" sx={{ minWidth: "50px" }}>
+                  {row.id}
+                </Typography>
+                <Typography variant="body2" sx={{ minWidth: "200px" }}>
+                  {row.url}
+                </Typography>
+                <Chip
+                  label={row.isDefault ? "Default" : "Not Default"}
+                  color={row.isDefault ? "success" : "default"}
+                  size="small"
+                />
+                <Box>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => {
+                      setBackgroundUri(`${VIDEO_SERVER}/${row.url}`);
+                      alert("Background set successfully!");
+                    }}
+                    sx={{ mr: 1 }}
+                  >
+                    Set
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    size="small"
+                    onClick={async () => {
+                      const { status } = await removeBackground(row._id);
+                      if (status === 200) {
+                        const results = await axios.get(API_URL + "backgrounds");
+                        const { data } = results;
+                        const newRows = data.map((background, key) => {
+                          const { _id, url, isDefault } = background;
+                          return { id: key + 1, url, isDefault, _id };
+                        });
+                        setRows(newRows);
+                        alert("Background removed successfully!");
+                      }
+                    }}
+                  >
+                    Remove
+                  </Button>
+                </Box>
+              </Box>
+            ))}
+          </Box>
+        </Box>
+      </Box>
     </Box>
   );
-}
+};
+
+export default Footer;

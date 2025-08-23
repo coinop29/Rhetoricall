@@ -123,7 +123,7 @@ export default function Home({ socket }) {
           const result = await getDefaultBackground();
           const { data } = result;
           url = data.url;
-          setBackgroundUri(`${url}`);
+          setBackgroundUri(generateVideoURL(url));
         } catch (e) {
           console.log(e);
         }
