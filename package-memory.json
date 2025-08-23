@@ -1,0 +1,11 @@
+{
+  "name": "sms-3D-visualization-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "cross-env NODE_OPTIONS='--max-old-space-size=4096' react-scripts start",
+    "build": "cross-env NODE_OPTIONS='--max-old-space-size=4096' react-scripts build",
+    "start:memory": "node --max-old-space-size=4096 node_modules/.bin/react-scripts start",
+    "build:memory": "node --max-old-space-size=4096 node_modules/.bin/react-scripts build"
+  }
+}

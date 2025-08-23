@@ -32,10 +32,12 @@
     "zustand": "^4.1.4"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "ESLINT_NO_DEV_ERRORS=true react-scripts build",
+    "start": "node --max-old-space-size=4096 node_modules/.bin/react-scripts start",
+    "build": "node --max-old-space-size=4096 node_modules/.bin/react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "start:dev": "NODE_OPTIONS='--max-old-space-size=4096' react-scripts start",
+    "build:dev": "NODE_OPTIONS='--max-old-space-size=4096' react-scripts build"
   },
   "eslintConfig": {
     "extends": [
