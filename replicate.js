@@ -32,8 +32,27 @@ const generateImageFromText = async (prompt) => {
       }
     );
 
-    console.log(`Image generated successfully: ${output}`);
-    return output[0]; // Return the first (and only) generated image URL
+    console.log(`Raw output from Replicate:`, output);
+    
+    // Handle different output formats
+    let imageUrl;
+    if (Array.isArray(output)) {
+      imageUrl = output[0];
+    } else if (typeof output === 'string') {
+      imageUrl = output;
+    } else if (output && output.toString) {
+      imageUrl = output.toString();
+    } else {
+      throw new Error('Unexpected output format from Replicate');
+    }
+
+    // Ensure we have a valid URL string
+    if (typeof imageUrl !== 'string') {
+      throw new Error('Image URL is not a string');
+    }
+
+    console.log(`Image generated successfully: ${imageUrl}`);
+    return imageUrl;
   } catch (error) {
     console.error("Error generating image:", error);
     throw new Error(`Failed to generate image: ${error.message}`);
