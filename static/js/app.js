@@ -617,7 +617,9 @@ class App {
                 <img src="${imageUrl}" alt="Generated image" onerror="this.style.display='none'">
             `;
         } else {
-            messageDiv.textContent = messageData.body || 'No message content';
+            const messageText = messageData.body || 'No message content';
+            messageDiv.textContent = messageText;
+            messageDiv.setAttribute('data-text', messageText);
         }
         
         container.appendChild(messageDiv);
