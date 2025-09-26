@@ -1,0 +1,393 @@
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, UploadFile, File, Form, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import Response, JSONResponse
+from pydantic import BaseModel, Field
+from typing import Optional, List, Dict, Any
+import os
+import asyncio
+import json
+import logging
+from datetime import datetime
+import uvicorn
+from contextlib import asynccontextmanager
+
+# Import our modules
+from database import init_db, insert_item, check_phone_number
+from twilio_service import init_twilio
+from replicate_service import generate_image_with_fallback
+from models import MessageItem, BackgroundVideo, DisplayMode
+from profanity_filter import clean_text
+from background_service import BackgroundService
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Global display mode setting
+global_display_mode = 'image'
+
+# WebSocket connection manager
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+        # Send current display mode to newly connected client
+        await websocket.send_json({"type": "displayModeChanged", "mode": global_display_mode})
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def send_personal_message(self, message: str, websocket: WebSocket):
+        await websocket.send_text(message)
+
+    async def broadcast(self, message: dict):
+        for connection in self.active_connections:
+            try:
+                await connection.send_json(message)
+            except:
+                # Remove disconnected connections
+                self.active_connections.remove(connection)
+
+manager = ConnectionManager()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    await init_db()
+    await init_twilio()
+    logger.info("Application startup complete")
+    yield
+    # Shutdown
+    logger.info("Application shutdown")
+
+app = FastAPI(
+    title="Rhetorical Backend API",
+    description="FastAPI version of the rhetorical SMS visualization server",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Mount static files
+app.mount("/static", StaticFiles(directory="public"), name="static")
+
+# Background service
+background_service = BackgroundService()
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    logger.info(f"{datetime.now().isoformat()} - {request.method} {request.url.path}")
+    response = await call_next(request)
+    return response
+
+@app.get("/")
+async def root():
+    return {"message": "Hello, World!"}
+
+@app.get("/health")
+async def health_check():
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "environment": os.getenv("NODE_ENV", "development")
+    }
+
+@app.get("/ws")
+async def websocket_endpoint():
+    return {"message": "WebSocket endpoint ready"}
+
+@app.websocket("/ws")
+async def websocket_handler(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            data = await websocket.receive_json()
+            
+            if data.get("type") == "history":
+                await manager.broadcast({"type": "historyChanged", "data": data.get("data")})
+            elif data.get("type") == "setDisplayMode":
+                mode = data.get("mode")
+                if mode in ['text', 'image']:
+                    global global_display_mode
+                    global_display_mode = mode
+                    await manager.broadcast({"type": "displayModeChanged", "mode": global_display_mode})
+                    
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+
+@app.get("/api/display-mode")
+async def get_display_mode():
+    return {
+        "success": True,
+        "displayMode": global_display_mode
+    }
+
+@app.post("/api/display-mode")
+async def set_display_mode(mode: DisplayMode):
+    global global_display_mode
+    global_display_mode = mode.mode
+    await manager.broadcast({"type": "displayModeChanged", "mode": global_display_mode})
+    
+    return {
+        "success": True,
+        "displayMode": global_display_mode,
+        "message": f"Display mode changed to {mode.mode}"
+    }
+
+@app.post("/api/test-image-generation")
+async def test_image_generation(prompt: dict):
+    try:
+        if not prompt.get("prompt"):
+            raise HTTPException(status_code=400, detail="Prompt is required")
+        
+        logger.info(f"Testing image generation for prompt: {prompt['prompt']}")
+        image_result = await generate_image_with_fallback(prompt["prompt"])
+        
+        return {
+            "success": True,
+            "result": image_result,
+            "message": "Image generation test completed"
+        }
+    except Exception as error:
+        logger.error(f"Test image generation failed: {error}")
+        raise HTTPException(status_code=500, detail=str(error))
+
+@app.post("/api/messageIncoming")
+async def message_incoming(request: Request):
+    try:
+        form_data = await request.form()
+        body = form_data.get("Body")
+        from_number = form_data.get("From")
+        sms_sid = form_data.get("SmsSid")
+        to_number = form_data.get("To")
+        
+        logger.info(f"Received SMS: {body} from {from_number}")
+        
+        # Create message item
+        if global_display_mode == 'image':
+            image_result = await generate_image_with_fallback(body)
+            item = MessageItem(
+                sid=sms_sid,
+                from_number=from_number,
+                to_number=to_number,
+                body=body,
+                filtered=clean_text(body),
+                image_url=image_result["imageUrl"],
+                image_generation_status="success" if image_result["success"] else "failed",
+                image_prompt=image_result["prompt"],
+                display_mode="image"
+            )
+        else:
+            item = MessageItem(
+                sid=sms_sid,
+                from_number=from_number,
+                to_number=to_number,
+                body=body,
+                filtered=clean_text(body),
+                image_url=None,
+                image_generation_status="skipped",
+                image_prompt=body,
+                display_mode="text"
+            )
+        
+        # Check if phone number exists
+        is_exists = await check_phone_number(item.from_number)
+        
+        # Insert item
+        await insert_item(item.dict())
+        
+        # Broadcast to WebSocket clients
+        await manager.broadcast({"type": "messageIncoming", "data": item.dict()})
+        
+        if is_exists:
+            return Response(content="success", status_code=200)
+        else:
+            twiml_response = f"""<?xml version="1.0" encoding="UTF-8"?>
+            <Response>
+                <Message>Thanks for your contribution! Image generated.</Message>
+            </Response>"""
+            return Response(content=twiml_response, media_type="text/xml")
+            
+    except Exception as error:
+        logger.error(f"Error processing message: {error}")
+        # Fallback response
+        twiml_response = f"""<?xml version="1.0" encoding="UTF-8"?>
+        <Response>
+            <Message>Thanks for your contribution!</Message>
+        </Response>"""
+        return Response(content=twiml_response, media_type="text/xml")
+
+@app.post("/api/whatsAppMessageIncoming")
+async def whatsapp_message_incoming(request: Request):
+    try:
+        form_data = await request.form()
+        body = form_data.get("Body")
+        from_number = form_data.get("From")
+        sms_sid = form_data.get("SmsSid")
+        to_number = form_data.get("To")
+        
+        logger.info(f"Received WhatsApp message: {body} from {from_number}")
+        
+        # Create message item (same logic as SMS)
+        if global_display_mode == 'image':
+            image_result = await generate_image_with_fallback(body)
+            item = MessageItem(
+                sid=sms_sid,
+                from_number=from_number,
+                to_number=to_number,
+                body=body,
+                filtered=clean_text(body),
+                image_url=image_result["imageUrl"],
+                image_generation_status="success" if image_result["success"] else "failed",
+                image_prompt=image_result["prompt"],
+                display_mode="image"
+            )
+        else:
+            item = MessageItem(
+                sid=sms_sid,
+                from_number=from_number,
+                to_number=to_number,
+                body=body,
+                filtered=clean_text(body),
+                image_url=None,
+                image_generation_status="skipped",
+                image_prompt=body,
+                display_mode="text"
+            )
+        
+        # Check if phone number exists
+        is_exists = await check_phone_number(item.from_number)
+        
+        # Insert item
+        await insert_item(item.dict())
+        
+        # Broadcast to WebSocket clients
+        await manager.broadcast({"type": "messageIncoming", "data": item.dict()})
+        
+        if is_exists:
+            return Response(content="success", status_code=200)
+        else:
+            twiml_response = f"""<?xml version="1.0" encoding="UTF-8"?>
+            <Response>
+                <Message>Thanks for your contribution! Image generated.</Message>
+            </Response>"""
+            return Response(content=twiml_response, media_type="text/xml")
+            
+    except Exception as error:
+        logger.error(f"Error processing WhatsApp message: {error}")
+        # Fallback response
+        twiml_response = f"""<?xml version="1.0" encoding="UTF-8"?>
+        <Response>
+            <Message>Thanks for your contribution!</Message>
+        </Response>"""
+        return Response(content=twiml_response, media_type="text/xml")
+
+# Background video endpoints
+@app.post("/api/upload")
+async def upload_background(file: UploadFile = File(...)):
+    try:
+        filename = f"{int(datetime.now().timestamp() * 1000)}-{file.filename}"
+        file_path = f"public/{filename}"
+        
+        # Save file
+        with open(file_path, "wb") as buffer:
+            content = await file.read()
+            buffer.write(content)
+        
+        # Create database record
+        file_url = f"{os.getenv('REACT_APP_BACKEND_URL', 'http://localhost:8000/')}static/{filename}"
+        background = BackgroundVideo(
+            url=file_url,
+            filename=filename
+        )
+        
+        await background_service.create_background(background)
+        
+        return {
+            "url": file_url,
+            "filename": filename
+        }
+    except Exception as error:
+        logger.error(f"Error in /api/upload: {error}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+@app.get("/api/backgrounds")
+async def get_backgrounds():
+    try:
+        backgrounds = await background_service.get_all_backgrounds()
+        return backgrounds
+    except Exception as error:
+        logger.error(f"Error in /api/backgrounds: {error}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+@app.get("/api/getBackgroundsFromExternalServer")
+async def get_backgrounds_from_external_server():
+    try:
+        result = await background_service.fetch_and_save_external_backgrounds()
+        return {
+            "message": "Backgrounds fetched successfully",
+            "backgrounds": result.get("new_backgrounds", 0)
+        }
+    except Exception as error:
+        logger.error(f"Error in /api/getBackgroundsFromExternalServer: {error}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+@app.post("/api/set_default")
+async def set_default_background(background_id: dict):
+    try:
+        await background_service.set_default_background(background_id["_id"])
+        return {"message": "Default background set successfully"}
+    except Exception as error:
+        logger.error(f"Error in /api/set_default: {error}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+@app.get("/api/get_default")
+async def get_default_background():
+    try:
+        background = await background_service.get_default_background()
+        if not background:
+            raise HTTPException(status_code=404, detail="Default background not found")
+        return background
+    except HTTPException:
+        raise
+    except Exception as error:
+        logger.error(f"Error in /api/get_default: {error}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+@app.post("/api/delete")
+async def delete_background(background_id: dict):
+    try:
+        result = await background_service.delete_background(background_id["_id"])
+        if not result:
+            raise HTTPException(status_code=404, detail="Background not found")
+        return {"message": "Background removed successfully"}
+    except HTTPException:
+        raise
+    except Exception as error:
+        logger.error(f"Error in /api/delete: {error}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+@app.post("/api/load")
+async def load_twilio_data():
+    try:
+        data = await init_twilio()
+        return {"data": data}
+    except Exception as error:
+        logger.error(f"Error in /api/load: {error}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
