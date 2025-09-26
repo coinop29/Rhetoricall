@@ -31,7 +31,7 @@ async def init_db():
 async def insert_item(item: Dict[str, Any]) -> str:
     """Insert a message item into the database"""
     try:
-        if not db:
+        if db is None:
             raise RuntimeError("Database not initialized")
         
         collection = db.items
@@ -46,7 +46,7 @@ async def insert_item(item: Dict[str, Any]) -> str:
 async def check_phone_number(phone_number: str) -> bool:
     """Check if a phone number exists in the database"""
     try:
-        if not db:
+        if db is None:
             raise RuntimeError("Database not initialized")
         
         collection = db.items
@@ -62,7 +62,7 @@ async def check_phone_number(phone_number: str) -> bool:
 async def get_all_items(limit: int = 100) -> list:
     """Get all message items from the database"""
     try:
-        if not db:
+        if db is None:
             raise RuntimeError("Database not initialized")
         
         collection = db.items
@@ -83,7 +83,7 @@ async def get_all_items(limit: int = 100) -> list:
 async def get_item_by_id(item_id: str) -> Optional[Dict[str, Any]]:
     """Get a specific item by ID"""
     try:
-        if not db:
+        if db is None:
             raise RuntimeError("Database not initialized")
         
         from bson import ObjectId
@@ -102,7 +102,7 @@ async def get_item_by_id(item_id: str) -> Optional[Dict[str, Any]]:
 async def delete_item(item_id: str) -> bool:
     """Delete an item by ID"""
     try:
-        if not db:
+        if db is None:
             raise RuntimeError("Database not initialized")
         
         from bson import ObjectId

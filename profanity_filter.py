@@ -1,6 +1,5 @@
 import re
 import logging
-from typing import str
 
 logger = logging.getLogger(__name__)
 

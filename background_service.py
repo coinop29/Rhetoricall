@@ -16,7 +16,7 @@ class BackgroundService:
     async def create_background(self, background: BackgroundVideo) -> str:
         """Create a new background video record"""
         try:
-            if not db:
+            if db is None:
                 raise RuntimeError("Database not initialized")
             
             collection = db[self.collection_name]
@@ -34,7 +34,7 @@ class BackgroundService:
     async def get_all_backgrounds(self) -> List[Dict[str, Any]]:
         """Get all background videos"""
         try:
-            if not db:
+            if db is None:
                 raise RuntimeError("Database not initialized")
             
             collection = db[self.collection_name]
@@ -57,7 +57,7 @@ class BackgroundService:
     async def get_default_background(self) -> Optional[Dict[str, Any]]:
         """Get the default background video"""
         try:
-            if not db:
+            if db is None:
                 raise RuntimeError("Database not initialized")
             
             collection = db[self.collection_name]
@@ -77,7 +77,7 @@ class BackgroundService:
     async def set_default_background(self, background_id: str) -> bool:
         """Set a background as default"""
         try:
-            if not db:
+            if db is None:
                 raise RuntimeError("Database not initialized")
             
             from bson import ObjectId
@@ -104,7 +104,7 @@ class BackgroundService:
     async def delete_background(self, background_id: str) -> bool:
         """Delete a background video"""
         try:
-            if not db:
+            if db is None:
                 raise RuntimeError("Database not initialized")
             
             from bson import ObjectId
@@ -158,7 +158,7 @@ class BackgroundService:
             logger.info(f"Found {len(links)} video links from external server")
             
             # Get existing URLs from database
-            if not db:
+            if db is None:
                 raise RuntimeError("Database not initialized")
             
             collection = db[self.collection_name]

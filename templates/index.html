@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rhetorical - SMS 3D Visualization</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Simple floating animations - no THREE.js needed -->
+</head>
+<body>
+    <div id="app">
+        <!-- Background Video -->
+        <video id="background-video" autoplay muted loop>
+            <source src="https://rhetoricall.site/backgroundvideos/spiral.mp4" type="video/mp4">
+        </video>
+
+        <!-- Display Mode Indicator -->
+        <div id="display-mode-chip" class="mode-chip">
+            <span id="mode-text">Mode: TEXT</span>
+        </div>
+
+        <!-- Floating Messages Container -->
+        <div id="floating-messages" class="floating-messages-container"></div>
+
+        <!-- Message History -->
+        <div id="message-history" class="hidden">
+            <div class="history-header">
+                <h3>Message History</h3>
+                <button id="close-history">×</button>
+            </div>
+            <div id="history-content"></div>
+        </div>
+
+        <!-- Controls -->
+        <div id="controls">
+            <button id="toggle-mode" class="control-btn">Switch to Image Mode</button>
+            <button id="show-history" class="control-btn">Show History</button>
+            <button id="background-settings" class="control-btn">Background Settings</button>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div id="loading" class="hidden">
+            <div class="spinner"></div>
+            <p>Processing message...</p>
+        </div>
+
+        <!-- Background Settings Modal -->
+        <div id="background-settings-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Background Settings</h3>
+                    <button id="close-background-settings" class="close-btn">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="current-background">
+                        <h4>Current Background</h4>
+                        <div id="current-background-info">
+                            <video id="current-background-preview" controls style="width: 100%; max-width: 300px; height: 200px;">
+                                <source src="https://rhetoricall.site/backgroundvideos/spiral.mp4" type="video/mp4">
+                            </video>
+                            <p id="current-background-name">spiral.mp4</p>
+                        </div>
+                    </div>
+                    
+                    <div class="background-options">
+                        <h4>Available Backgrounds</h4>
+                        <div id="background-list" class="background-grid">
+                            <!-- Backgrounds will be loaded here -->
+                        </div>
+                    </div>
+                    
+                    <div class="upload-section">
+                        <h4>Upload New Background</h4>
+                        <div class="upload-area" id="upload-area">
+                            <input type="file" id="background-file-input" accept=".mp4,.webm,.avi" style="display: none;">
+                            <div class="upload-placeholder">
+                                <p>Click to upload or drag & drop</p>
+                                <p class="upload-hint">Supports MP4, WebM, AVI files</p>
+                            </div>
+                        </div>
+                        <button id="upload-background-btn" class="upload-btn hidden">Upload Background</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notification -->
+        <div id="notification" class="hidden">
+            <div class="notification-content">
+                <span id="notification-text"></span>
+                <button id="close-notification">×</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/static/js/websocket.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

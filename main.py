@@ -1,7 +1,8 @@
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, UploadFile, File, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import Response, JSONResponse
+from fastapi.responses import Response, JSONResponse, HTMLResponse
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 import os
@@ -11,6 +12,10 @@ import logging
 from datetime import datetime
 import uvicorn
 from contextlib import asynccontextmanager
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Import our modules
 from database import init_db, insert_item, check_phone_number
@@ -35,20 +40,25 @@ class ConnectionManager:
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
         self.active_connections.append(websocket)
+        logger.info(f"WebSocket connected. Total connections: {len(self.active_connections)}")
         # Send current display mode to newly connected client
         await websocket.send_json({"type": "displayModeChanged", "mode": global_display_mode})
 
     def disconnect(self, websocket: WebSocket):
         self.active_connections.remove(websocket)
+        logger.info(f"WebSocket disconnected. Total connections: {len(self.active_connections)}")
 
     async def send_personal_message(self, message: str, websocket: WebSocket):
         await websocket.send_text(message)
 
     async def broadcast(self, message: dict):
+        logger.info(f"Broadcasting message to {len(self.active_connections)} connections: {message}")
         for connection in self.active_connections:
             try:
                 await connection.send_json(message)
-            except:
+                logger.info(f"Message sent successfully to connection")
+            except Exception as e:
+                logger.error(f"Error sending message to connection: {e}")
                 # Remove disconnected connections
                 self.active_connections.remove(connection)
 
@@ -81,7 +91,10 @@ app.add_middleware(
 )
 
 # Mount static files
-app.mount("/static", StaticFiles(directory="public"), name="static")
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Setup templates
+templates = Jinja2Templates(directory="templates")
 
 # Background service
 background_service = BackgroundService()
@@ -92,9 +105,9 @@ async def log_requests(request: Request, call_next):
     response = await call_next(request)
     return response
 
-@app.get("/")
-async def root():
-    return {"message": "Hello, World!"}
+@app.get("/", response_class=HTMLResponse)
+async def root(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
 
 @app.get("/health")
 async def health_check():
@@ -209,7 +222,11 @@ async def message_incoming(request: Request):
         await insert_item(item.dict())
         
         # Broadcast to WebSocket clients
-        await manager.broadcast({"type": "messageIncoming", "data": item.dict()})
+        # Convert datetime objects to strings for JSON serialization
+        item_dict = item.dict()
+        if item_dict.get('created_at'):
+            item_dict['created_at'] = item_dict['created_at'].isoformat()
+        await manager.broadcast({"type": "messageIncoming", "filtered": item_dict})
         
         if is_exists:
             return Response(content="success", status_code=200)
@@ -274,7 +291,11 @@ async def whatsapp_message_incoming(request: Request):
         await insert_item(item.dict())
         
         # Broadcast to WebSocket clients
-        await manager.broadcast({"type": "messageIncoming", "data": item.dict()})
+        # Convert datetime objects to strings for JSON serialization
+        item_dict = item.dict()
+        if item_dict.get('created_at'):
+            item_dict['created_at'] = item_dict['created_at'].isoformat()
+        await manager.broadcast({"type": "messageIncoming", "filtered": item_dict})
         
         if is_exists:
             return Response(content="success", status_code=200)
@@ -330,7 +351,17 @@ async def get_backgrounds():
         return backgrounds
     except Exception as error:
         logger.error(f"Error in /api/backgrounds: {error}")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        # Return default backgrounds as fallback
+        return [
+            {"url": "spiral.mp4", "filename": "spiral.mp4", "isDefault": True, "_id": "spiral"},
+            {"url": "grid2.mp4", "filename": "grid2.mp4", "isDefault": False, "_id": "grid2"},
+            {"url": "scifi1.mp4", "filename": "scifi1.mp4", "isDefault": False, "_id": "scifi1"},
+            {"url": "scifi2.mp4", "filename": "scifi2.mp4", "isDefault": False, "_id": "scifi2"},
+            {"url": "scifi3.mp4", "filename": "scifi3.mp4", "isDefault": False, "_id": "scifi3"},
+            {"url": "tunnel.mp4", "filename": "tunnel.mp4", "isDefault": False, "_id": "tunnel"},
+            {"url": "triangles.mp4", "filename": "triangles.mp4", "isDefault": False, "_id": "triangles"},
+            {"url": "yellowvoid.mp4", "filename": "yellowvoid.mp4", "isDefault": False, "_id": "yellowvoid"}
+        ]
 
 @app.get("/api/getBackgroundsFromExternalServer")
 async def get_backgrounds_from_external_server():
@@ -364,7 +395,8 @@ async def get_default_background():
         raise
     except Exception as error:
         logger.error(f"Error in /api/get_default: {error}")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        # Return default background as fallback
+        return {"url": "spiral.mp4", "filename": "spiral.mp4", "isDefault": True}
 
 @app.post("/api/delete")
 async def delete_background(background_id: dict):
