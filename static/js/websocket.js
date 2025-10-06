@@ -11,9 +11,19 @@ class WebSocketManager {
     }
 
     connect() {
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        // For production, try both protocols to handle different server configurations
+        const isHttps = window.location.protocol === 'https:';
         const host = window.location.host;
-        const wsUrl = `${protocol}//${host}/ws`;
+        
+        // Try WSS first if on HTTPS, then fallback to WS
+        let wsUrl;
+        if (isHttps) {
+            // First try WSS (secure WebSocket)
+            wsUrl = `wss://${host}/ws`;
+        } else {
+            // Use WS for HTTP
+            wsUrl = `ws://${host}/ws`;
+        }
         
         console.log('🔌 Connecting to WebSocket:', wsUrl);
         
@@ -43,6 +53,14 @@ class WebSocketManager {
                 this.isConnected = false;
                 this.triggerConnectionHandlers('disconnect', event);
                 
+                // If WSS failed and we're on HTTPS, try WS as fallback
+                if (isHttps && wsUrl.startsWith('wss://') && this.reconnectAttempts === 0) {
+                    console.log('🔄 WSS failed, trying WS fallback...');
+                    this.reconnectAttempts = 1; // Don't count this as a real reconnect attempt
+                    this.connectWithFallback();
+                    return;
+                }
+                
                 if (!event.wasClean && this.reconnectAttempts < this.maxReconnectAttempts) {
                     this.scheduleReconnect();
                 }
@@ -55,6 +73,54 @@ class WebSocketManager {
             
         } catch (error) {
             console.error('❌ Failed to create WebSocket connection:', error);
+            this.scheduleReconnect();
+        }
+    }
+
+    connectWithFallback() {
+        const host = window.location.host;
+        const wsUrl = `ws://${host}/ws`;
+        
+        console.log('🔌 Trying WebSocket fallback:', wsUrl);
+        
+        try {
+            this.socket = new WebSocket(wsUrl);
+            
+            this.socket.onopen = (event) => {
+                console.log('✅ WebSocket connected successfully (fallback)');
+                this.isConnected = true;
+                this.reconnectAttempts = 0;
+                this.triggerConnectionHandlers('connect', event);
+            };
+            
+            this.socket.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    console.log('📨 WebSocket message received:', data);
+                    console.log('📨 Message type:', data.type);
+                    this.handleMessage(data);
+                } catch (error) {
+                    console.error('❌ Error parsing WebSocket message:', error);
+                }
+            };
+            
+            this.socket.onclose = (event) => {
+                console.log('🔌 WebSocket disconnected (fallback):', event.code, event.reason);
+                this.isConnected = false;
+                this.triggerConnectionHandlers('disconnect', event);
+                
+                if (!event.wasClean && this.reconnectAttempts < this.maxReconnectAttempts) {
+                    this.scheduleReconnect();
+                }
+            };
+            
+            this.socket.onerror = (error) => {
+                console.error('❌ WebSocket error (fallback):', error);
+                this.triggerConnectionHandlers('error', error);
+            };
+            
+        } catch (error) {
+            console.error('❌ Failed to create WebSocket fallback connection:', error);
             this.scheduleReconnect();
         }
     }
@@ -151,6 +217,10 @@ window.wsManager = new WebSocketManager();
 
 // Initialize connection when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('🚀 Initializing WebSocket connection...');
+    console.log('🌐 Current location:', window.location.href);
+    console.log('🔒 Protocol:', window.location.protocol);
+    console.log('🏠 Host:', window.location.host);
     window.wsManager.connect();
 });
 

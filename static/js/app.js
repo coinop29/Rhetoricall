@@ -14,16 +14,6 @@ class App {
         this.loadDefaultBackground();
         this.updateDisplayModeUI();
         console.log('✅ App initialized successfully');
-        
-        // Test floating message after 3 seconds
-        setTimeout(() => {
-            console.log('🧪 Testing floating message...');
-            this.addFloatingMessage({
-                body: 'Test floating message',
-                image_url: null,
-                image_generation_status: 'skipped'
-            });
-        }, 3000);
     }
 
     setupEventListeners() {
