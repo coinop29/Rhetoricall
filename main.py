@@ -320,7 +320,10 @@ async def whatsapp_message_incoming(request: Request):
 async def upload_background(file: UploadFile = File(...)):
     try:
         filename = f"{int(datetime.now().timestamp() * 1000)}-{file.filename}"
-        file_path = f"public/{filename}"
+        file_path = f"static/media/{filename}"
+        
+        # Ensure the directory exists
+        os.makedirs("static/media", exist_ok=True)
         
         # Save file
         with open(file_path, "wb") as buffer:
@@ -328,7 +331,7 @@ async def upload_background(file: UploadFile = File(...)):
             buffer.write(content)
         
         # Create database record
-        file_url = f"{os.getenv('REACT_APP_BACKEND_URL', 'http://localhost:8000/')}static/{filename}"
+        file_url = f"/static/media/{filename}"
         background = BackgroundVideo(
             url=file_url,
             filename=filename
@@ -347,20 +350,34 @@ async def upload_background(file: UploadFile = File(...)):
 @app.get("/api/backgrounds")
 async def get_backgrounds():
     try:
-        backgrounds = await background_service.get_all_backgrounds()
+        # List files from static/media directory
+        media_dir = "static/media"
+        backgrounds = []
+        
+        if os.path.exists(media_dir):
+            files = os.listdir(media_dir)
+            mp4_files = [f for f in files if f.endswith('.mp4')]
+            
+            for i, filename in enumerate(mp4_files):
+                backgrounds.append({
+                    "url": f"/static/media/{filename}",
+                    "filename": filename,
+                    "isDefault": (filename == "grid2.mp4"),  # Set grid2 as default
+                    "_id": filename
+                })
+        else:
+            logger.warning(f"Media directory not found: {media_dir}")
+            
         return backgrounds
     except Exception as error:
         logger.error(f"Error in /api/backgrounds: {error}")
         # Return default backgrounds as fallback
         return [
-            {"url": "spiral.mp4", "filename": "spiral.mp4", "isDefault": True, "_id": "spiral"},
-            {"url": "grid2.mp4", "filename": "grid2.mp4", "isDefault": False, "_id": "grid2"},
-            {"url": "scifi1.mp4", "filename": "scifi1.mp4", "isDefault": False, "_id": "scifi1"},
-            {"url": "scifi2.mp4", "filename": "scifi2.mp4", "isDefault": False, "_id": "scifi2"},
-            {"url": "scifi3.mp4", "filename": "scifi3.mp4", "isDefault": False, "_id": "scifi3"},
-            {"url": "tunnel.mp4", "filename": "tunnel.mp4", "isDefault": False, "_id": "tunnel"},
-            {"url": "triangles.mp4", "filename": "triangles.mp4", "isDefault": False, "_id": "triangles"},
-            {"url": "yellowvoid.mp4", "filename": "yellowvoid.mp4", "isDefault": False, "_id": "yellowvoid"}
+            {"url": "/static/media/grid2.mp4", "filename": "grid2.mp4", "isDefault": True, "_id": "grid2"},
+            {"url": "/static/media/scifi1.mp4", "filename": "scifi1.mp4", "isDefault": False, "_id": "scifi1"},
+            {"url": "/static/media/scifi2.mp4", "filename": "scifi2.mp4", "isDefault": False, "_id": "scifi2"},
+            {"url": "/static/media/scifi3.mp4", "filename": "scifi3.mp4", "isDefault": False, "_id": "scifi3"},
+            {"url": "/static/media/tunnel.mp4", "filename": "tunnel.mp4", "isDefault": False, "_id": "tunnel"}
         ]
 
 @app.get("/api/getBackgroundsFromExternalServer")
@@ -396,7 +413,7 @@ async def get_default_background():
     except Exception as error:
         logger.error(f"Error in /api/get_default: {error}")
         # Return default background as fallback
-        return {"url": "spiral.mp4", "filename": "spiral.mp4", "isDefault": True}
+        return {"url": "grid2.mp4", "filename": "grid2.mp4", "isDefault": True}
 
 @app.post("/api/delete")
 async def delete_background(background_id: dict):

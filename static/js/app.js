@@ -293,7 +293,7 @@ class App {
         div.dataset.index = index;
         div.dataset.filename = background.filename;
 
-        const videoUrl = `https://rhetoricall.site/backgroundvideos/${background.filename}`;
+        const videoUrl = `/static/media/${background.filename}`;
         const currentVideo = document.getElementById('background-video');
         const isCurrent = currentVideo && currentVideo.src.includes(background.filename);
 
@@ -329,7 +329,7 @@ class App {
             // Update the main background video
             const video = document.getElementById('background-video');
             if (video) {
-                const videoUrl = `https://rhetoricall.site/backgroundvideos/${filename}`;
+                const videoUrl = `/static/media/${filename}`;
                 video.src = videoUrl;
                 video.load();
             }
@@ -370,7 +370,7 @@ class App {
         
         if (currentVideo && currentName) {
             if (filename) {
-                const videoUrl = `https://rhetoricall.site/backgroundvideos/${filename}`;
+                const videoUrl = `/static/media/${filename}`;
                 currentVideo.src = videoUrl;
                 currentVideo.load();
                 currentName.textContent = filename;
@@ -667,7 +667,7 @@ class App {
                 if (video && data.url) {
                     // Extract filename from URL and construct video server URL
                     const filename = data.url.split('/').pop();
-                    const videoUrl = `https://rhetoricall.site/backgroundvideos/${filename}`;
+                    const videoUrl = `/static/media/${filename}`;
                     video.src = videoUrl;
                     console.log('✅ Background video loaded:', videoUrl);
                 }

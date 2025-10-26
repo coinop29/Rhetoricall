@@ -1,10 +1,71 @@
-# Node Express Mongo Example
+# Rhetoricall Backend
 
-This is a sample application demonstrating how to build an Node.js express RESTful application that integrates with MongoDB. You can see the [tutorial here](https://codetree.dev/node-rest-api-tutorial/)
+FastAPI backend application for SMS and WebSocket messaging with AI image generation.
 
-## Running the application
+## Features
 
-1. Clone the repo
-2. Install dependencies: `npm install`
-3. [Install and run MongoDB](https://www.mongodb.com/docs/manual/installation/) on your system. This repo works on an instance running on `localhost:27017`
-4. Start the application: `node index.js`# sms-backend
+- FastAPI REST API
+- WebSocket support for real-time messaging
+- SMS integration via Twilio
+- AI image generation via Replicate API
+- Background video/image management
+- Profanity filtering
+- Static file serving
+
+## Environment Setup
+
+Copy `env.example` to `.env` and configure:
+
+```bash
+cp env.example .env
+```
+
+Required environment variables:
+- `TWILIO_ACCOUNT_SID`
+- `TWILIO_AUTH_TOKEN`
+- `TWILIO_PHONE_NUMBER`
+- `REPLICATE_API_TOKEN`
+- Database configuration
+
+## Running Locally
+
+```bash
+pip install -r requirements.txt
+python -m uvicorn main:app --reload
+```
+
+The API will be available at `http://localhost:8000`
+
+## Deployment
+
+### Docker
+
+```bash
+docker build -t rhetoricall-backend .
+docker run -p 8000:8000 rhetoricall-backend
+```
+
+### Railway
+
+This project can be deployed on Railway or similar platforms using the provided Dockerfile.
+
+## API Endpoints
+
+- `POST /messages` - Send SMS message
+- `POST /upload` - Upload media files
+- `POST /display-mode` - Set display mode
+- `GET /health` - Health check
+- WebSocket at `/ws` - Real-time messaging
+
+## Project Structure
+
+- `main.py` - FastAPI application and routes
+- `database.py` - Database operations
+- `models.py` - Pydantic models
+- `twilio_service.py` - Twilio SMS integration
+- `replicate_service.py` - AI image generation
+- `background_service.py` - Background management
+- `profanity_filter.py` - Content filtering
+- `templates/` - HTML templates
+- `static/` - Static assets
+- `public/` - User uploads

@@ -1,8 +1,40 @@
-node_modules
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
 
-# build
-.zip
+# Node
+node_modules/
+
+# Environment files
 .env
+.env.local
 
-public
-/public
+# Build artifacts
+build/
+.zip
+
+# User uploads
+public/
+
+# Media files
+static/media/*.mp4
+*.mp4
+*.mov
+*.avi
+*.mp3
+*.wav
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
