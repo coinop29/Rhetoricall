@@ -13,6 +13,7 @@ class App {
         this.setupWebSocketHandlers();
         this.loadDefaultBackground();
         this.updateDisplayModeUI();
+        this.loadBannerMessage();
         console.log('✅ App initialized successfully');
     }
 
@@ -51,6 +52,12 @@ class App {
         const closeBackgroundSettingsBtn = document.getElementById('close-background-settings');
         if (closeBackgroundSettingsBtn) {
             closeBackgroundSettingsBtn.addEventListener('click', () => this.hideBackgroundSettings());
+        }
+
+        // Close banner
+        const closeBannerBtn = document.getElementById('close-banner');
+        if (closeBannerBtn) {
+            closeBannerBtn.addEventListener('click', () => this.hideBanner());
         }
 
         // Close history on outside click
@@ -674,6 +681,49 @@ class App {
             }
         } catch (error) {
             console.warn('⚠️ Could not load default background:', error);
+        }
+    }
+
+    // Banner management methods
+    async loadBannerMessage() {
+        try {
+            const response = await fetch('/api/banner-message');
+            if (response.ok) {
+                const data = await response.json();
+                if (data.message && data.message.trim() !== '') {
+                    this.showBanner(data.message);
+                }
+            }
+        } catch (error) {
+            console.warn('⚠️ Could not load banner message:', error);
+        }
+    }
+
+    showBanner(message) {
+        const banner = document.getElementById('message-banner');
+        const bannerText = document.getElementById('banner-text');
+        
+        if (banner && bannerText) {
+            bannerText.textContent = message;
+            banner.classList.remove('hidden');
+            banner.classList.add('show');
+            document.body.classList.add('banner-visible');
+            
+            // Auto-hide after 10 seconds if not manually closed
+            setTimeout(() => {
+                if (banner.classList.contains('show')) {
+                    this.hideBanner();
+                }
+            }, 10000);
+        }
+    }
+
+    hideBanner() {
+        const banner = document.getElementById('message-banner');
+        if (banner) {
+            banner.classList.remove('show');
+            banner.classList.add('hidden');
+            document.body.classList.remove('banner-visible');
         }
     }
 

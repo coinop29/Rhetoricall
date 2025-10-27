@@ -437,6 +437,39 @@ async def load_twilio_data():
         logger.error(f"Error in /api/load: {error}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
+# Banner message endpoints
+@app.get("/api/banner-message")
+async def get_banner_message():
+    """Get the current banner message"""
+    try:
+        # For now, return a default message. In production, this could come from database
+        return {
+            "message": "Welcome to Rhetorical SMS Visualization! Send messages to see them appear in 3D.",
+            "enabled": True
+        }
+    except Exception as error:
+        logger.error(f"Error getting banner message: {error}")
+        return {"message": "", "enabled": False}
+
+@app.post("/api/banner-message")
+async def set_banner_message(request: dict):
+    """Set a new banner message"""
+    try:
+        message = request.get("message", "")
+        enabled = request.get("enabled", True)
+        
+        # In production, save this to database
+        logger.info(f"Banner message updated: {message}")
+        
+        return {
+            "success": True,
+            "message": message,
+            "enabled": enabled
+        }
+    except Exception as error:
+        logger.error(f"Error setting banner message: {error}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
