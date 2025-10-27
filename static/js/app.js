@@ -14,6 +14,17 @@ class App {
         this.loadDefaultBackground();
         this.updateDisplayModeUI();
         this.loadBannerMessage();
+        
+        // Test banner visibility
+        setTimeout(() => {
+            const banner = document.getElementById('message-banner');
+            if (banner) {
+                console.log('Banner element found:', banner);
+                console.log('Banner classes:', banner.className);
+                console.log('Banner computed style:', window.getComputedStyle(banner).transform);
+            }
+        }, 1000);
+        
         console.log('✅ App initialized successfully');
     }
 
@@ -713,12 +724,17 @@ class App {
             const response = await fetch('/api/banner-message');
             if (response.ok) {
                 const data = await response.json();
-                if (data.message && data.message.trim() !== '') {
+                if (data.enabled && data.message && data.message.trim() !== '') {
                     this.showBanner(data.message);
+                } else {
+                    // Hide banner if disabled or no message
+                    this.hideBanner();
                 }
             }
         } catch (error) {
             console.warn('⚠️ Could not load banner message:', error);
+            // Show default banner if API fails
+            this.showBanner('Welcome to Rhetorical SMS Visualization!');
         }
     }
 
@@ -728,9 +744,10 @@ class App {
         
         if (banner && bannerText) {
             bannerText.textContent = message;
-            banner.classList.remove('hidden');
             banner.classList.add('show');
             document.body.classList.add('banner-visible');
+            
+            console.log('✅ Banner shown:', message);
             
             // Auto-hide after 10 seconds if not manually closed
             setTimeout(() => {
@@ -745,17 +762,8 @@ class App {
         const banner = document.getElementById('message-banner');
         if (banner) {
             banner.classList.remove('show');
-            banner.classList.add('hidden');
             document.body.classList.remove('banner-visible');
-        }
-    }
-
-    hideBanner() {
-        const banner = document.getElementById('message-banner');
-        if (banner) {
-            banner.classList.remove('show');
-            banner.classList.add('hidden');
-            document.body.classList.remove('banner-visible');
+            console.log('✅ Banner hidden');
         }
     }
 
