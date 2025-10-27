@@ -60,6 +60,18 @@ class App {
             closeBannerBtn.addEventListener('click', () => this.hideBanner());
         }
 
+        // Banner settings
+        const bannerSettingsBtn = document.getElementById('banner-settings');
+        if (bannerSettingsBtn) {
+            bannerSettingsBtn.addEventListener('click', () => this.showBannerSettings());
+        }
+
+        // Close banner settings modal
+        const closeBannerSettingsBtn = document.getElementById('close-banner-settings');
+        if (closeBannerSettingsBtn) {
+            closeBannerSettingsBtn.addEventListener('click', () => this.hideBannerSettings());
+        }
+
         // Close history on outside click
         document.addEventListener('click', (e) => {
             const history = document.getElementById('message-history');
@@ -76,8 +88,19 @@ class App {
             }
         });
 
+        // Close banner settings modal on outside click
+        document.addEventListener('click', (e) => {
+            const modal = document.getElementById('banner-settings-modal');
+            if (modal && !modal.contains(e.target) && !e.target.closest('#banner-settings')) {
+                this.hideBannerSettings();
+            }
+        });
+
         // Setup background upload functionality
         this.setupBackgroundUpload();
+        
+        // Setup banner controls
+        this.setupBannerControls();
     }
 
     setupWebSocketHandlers() {
@@ -724,6 +747,167 @@ class App {
             banner.classList.remove('show');
             banner.classList.add('hidden');
             document.body.classList.remove('banner-visible');
+        }
+    }
+
+    hideBanner() {
+        const banner = document.getElementById('message-banner');
+        if (banner) {
+            banner.classList.remove('show');
+            banner.classList.add('hidden');
+            document.body.classList.remove('banner-visible');
+        }
+    }
+
+    // Banner settings management
+    showBannerSettings() {
+        const modal = document.getElementById('banner-settings-modal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            this.loadCurrentBannerSettings();
+        }
+    }
+
+    hideBannerSettings() {
+        const modal = document.getElementById('banner-settings-modal');
+        if (modal) {
+            modal.classList.add('hidden');
+        }
+    }
+
+    async loadCurrentBannerSettings() {
+        try {
+            const response = await fetch('/api/banner-message');
+            if (response.ok) {
+                const data = await response.json();
+                const messageInput = document.getElementById('banner-message-input');
+                const enabledCheckbox = document.getElementById('banner-enabled-checkbox');
+                const statusText = document.getElementById('banner-status-text');
+                const statusDiv = document.querySelector('.banner-status');
+
+                if (messageInput) {
+                    messageInput.value = data.message || '';
+                }
+                if (enabledCheckbox) {
+                    enabledCheckbox.checked = data.enabled !== false;
+                }
+                if (statusText && statusDiv) {
+                    if (data.enabled !== false && data.message && data.message.trim() !== '') {
+                        statusText.textContent = 'Banner is currently enabled and visible';
+                        statusDiv.classList.remove('disabled');
+                    } else {
+                        statusText.textContent = 'Banner is currently disabled';
+                        statusDiv.classList.add('disabled');
+                    }
+                }
+            }
+        } catch (error) {
+            console.warn('⚠️ Could not load banner settings:', error);
+        }
+    }
+
+    async saveBannerSettings() {
+        const messageInput = document.getElementById('banner-message-input');
+        const enabledCheckbox = document.getElementById('banner-enabled-checkbox');
+        
+        if (!messageInput || !enabledCheckbox) return;
+
+        const message = messageInput.value.trim();
+        const enabled = enabledCheckbox.checked;
+
+        try {
+            const response = await fetch('/api/banner-message', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message: message,
+                    enabled: enabled
+                })
+            });
+
+            if (response.ok) {
+                this.showNotification('Banner settings saved successfully', 'success');
+                this.updateBannerStatus();
+                
+                // If enabled and has message, show the banner
+                if (enabled && message) {
+                    this.showBanner(message);
+                } else {
+                    this.hideBanner();
+                }
+            } else {
+                throw new Error('Failed to save banner settings');
+            }
+        } catch (error) {
+            console.error('Error saving banner settings:', error);
+            this.showNotification('Error saving banner settings', 'error');
+        }
+    }
+
+    previewBanner() {
+        const messageInput = document.getElementById('banner-message-input');
+        if (messageInput && messageInput.value.trim()) {
+            this.showBanner(messageInput.value.trim());
+        } else {
+            this.showNotification('Please enter a message to preview', 'warning');
+        }
+    }
+
+    hideBannerNow() {
+        this.hideBanner();
+        this.showNotification('Banner hidden', 'info');
+    }
+
+    updateBannerStatus() {
+        const messageInput = document.getElementById('banner-message-input');
+        const enabledCheckbox = document.getElementById('banner-enabled-checkbox');
+        const statusText = document.getElementById('banner-status-text');
+        const statusDiv = document.querySelector('.banner-status');
+
+        if (statusText && statusDiv && messageInput && enabledCheckbox) {
+            const message = messageInput.value.trim();
+            const enabled = enabledCheckbox.checked;
+
+            if (enabled && message) {
+                statusText.textContent = 'Banner is currently enabled and visible';
+                statusDiv.classList.remove('disabled');
+            } else {
+                statusText.textContent = 'Banner is currently disabled';
+                statusDiv.classList.add('disabled');
+            }
+        }
+    }
+
+    setupBannerControls() {
+        // Preview banner button
+        const previewBtn = document.getElementById('preview-banner');
+        if (previewBtn) {
+            previewBtn.addEventListener('click', () => this.previewBanner());
+        }
+
+        // Save banner button
+        const saveBtn = document.getElementById('save-banner');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', () => this.saveBannerSettings());
+        }
+
+        // Hide banner now button
+        const hideBtn = document.getElementById('hide-banner-now');
+        if (hideBtn) {
+            hideBtn.addEventListener('click', () => this.hideBannerNow());
+        }
+
+        // Update status when inputs change
+        const messageInput = document.getElementById('banner-message-input');
+        const enabledCheckbox = document.getElementById('banner-enabled-checkbox');
+        
+        if (messageInput) {
+            messageInput.addEventListener('input', () => this.updateBannerStatus());
+        }
+        if (enabledCheckbox) {
+            enabledCheckbox.addEventListener('change', () => this.updateBannerStatus());
         }
     }
 

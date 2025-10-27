@@ -853,6 +853,129 @@ body.banner-visible .mode-chip {
     transform: none;
 }
 
+/* Banner Settings Modal Styles */
+.banner-controls {
+    padding: 20px 0;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+#banner-message-input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    font-size: 14px;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 80px;
+}
+
+#banner-message-input:focus {
+    outline: none;
+    border-color: rgba(76, 175, 80, 0.5);
+    background: rgba(255, 255, 255, 0.15);
+}
+
+#banner-message-input::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.checkbox-label input[type="checkbox"] {
+    margin-right: 10px;
+    width: 18px;
+    height: 18px;
+    accent-color: #4caf50;
+}
+
+.banner-actions {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.banner-actions .action-btn {
+    padding: 10px 16px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    flex: 1;
+    min-width: 120px;
+}
+
+.preview-btn {
+    background: rgba(33, 150, 243, 0.8);
+    color: white;
+}
+
+.preview-btn:hover {
+    background: rgba(33, 150, 243, 1);
+    transform: translateY(-2px);
+}
+
+.save-btn {
+    background: rgba(76, 175, 80, 0.8);
+    color: white;
+}
+
+.save-btn:hover {
+    background: rgba(76, 175, 80, 1);
+    transform: translateY(-2px);
+}
+
+.hide-btn {
+    background: rgba(244, 67, 54, 0.8);
+    color: white;
+}
+
+.hide-btn:hover {
+    background: rgba(244, 67, 54, 1);
+    transform: translateY(-2px);
+}
+
+.banner-status {
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    border-left: 4px solid rgba(76, 175, 80, 0.8);
+}
+
+.banner-status p {
+    margin: 0;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.banner-status.disabled {
+    border-left-color: rgba(244, 67, 54, 0.8);
+}
+
+.banner-status.disabled p {
+    color: rgba(244, 67, 54, 0.8);
+}
+
 /* Loading States */
 .background-item.loading {
     opacity: 0.6;

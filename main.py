@@ -32,6 +32,10 @@ logger = logging.getLogger(__name__)
 # Global display mode setting
 global_display_mode = 'image'
 
+# Global banner message setting
+global_banner_message = "Welcome to Rhetorical SMS Visualization! Send messages to see them appear in 3D."
+global_banner_enabled = True
+
 # WebSocket connection manager
 class ConnectionManager:
     def __init__(self):
@@ -455,11 +459,16 @@ async def get_banner_message():
 async def set_banner_message(request: dict):
     """Set a new banner message"""
     try:
+        global global_banner_message, global_banner_enabled
+        
         message = request.get("message", "")
         enabled = request.get("enabled", True)
         
-        # In production, save this to database
-        logger.info(f"Banner message updated: {message}")
+        # Update global variables
+        global_banner_message = message
+        global_banner_enabled = enabled
+        
+        logger.info(f"Banner message updated: '{message}' (enabled: {enabled})")
         
         return {
             "success": True,

@@ -45,6 +45,7 @@
             <button id="toggle-mode" class="control-btn">Switch to Image Mode</button>
             <button id="show-history" class="control-btn">Show History</button>
             <button id="background-settings" class="control-btn">Background Settings</button>
+            <button id="banner-settings" class="control-btn">Banner Settings</button>
         </div>
 
         <!-- Loading Indicator -->
@@ -88,6 +89,42 @@
                             </div>
                         </div>
                         <button id="upload-background-btn" class="upload-btn hidden">Upload Background</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Banner Settings Modal -->
+        <div id="banner-settings-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Banner Message Settings</h3>
+                    <button id="close-banner-settings" class="close-btn">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="banner-controls">
+                        <div class="form-group">
+                            <label for="banner-message-input">Banner Message:</label>
+                            <textarea id="banner-message-input" placeholder="Enter your banner message..." rows="3"></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="banner-enabled-checkbox" checked>
+                                <span class="checkmark"></span>
+                                Enable Banner
+                            </label>
+                        </div>
+                        
+                        <div class="banner-actions">
+                            <button id="preview-banner" class="action-btn preview-btn">Preview</button>
+                            <button id="save-banner" class="action-btn save-btn">Save Changes</button>
+                            <button id="hide-banner-now" class="action-btn hide-btn">Hide Banner Now</button>
+                        </div>
+                        
+                        <div class="banner-status">
+                            <p id="banner-status-text">Banner is currently enabled</p>
+                        </div>
                     </div>
                 </div>
             </div>
