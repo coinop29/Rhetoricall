@@ -111,9 +111,10 @@ body.banner-visible .mode-chip {
     border-radius: 20px;
     font-size: 14px;
     font-weight: 600;
-    z-index: 1000;
+    z-index: 3000;
     backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 255, 255, 0.1);
+    pointer-events: auto;
 }
 
 .mode-chip.image-mode {
@@ -460,7 +461,8 @@ body.banner-visible .mode-chip {
     transform: translateX(-50%);
     display: flex;
     gap: 10px;
-    z-index: 1000;
+    z-index: 3000;
+    pointer-events: auto;
 }
 
 .control-btn {
@@ -608,9 +610,10 @@ body.banner-visible .mode-chip {
     border-radius: 10px;
     padding: 15px 20px;
     backdrop-filter: blur(20px);
-    z-index: 3000;
+    z-index: 3500;
     max-width: 300px;
     animation: slideIn 0.3s ease;
+    pointer-events: auto;
 }
 
 @keyframes slideIn {
@@ -699,11 +702,12 @@ body.banner-visible .mode-chip {
     height: 100%;
     background: rgba(0, 0, 0, 0.8);
     backdrop-filter: blur(10px);
-    z-index: 3000;
+    z-index: 4000;
     display: flex;
     align-items: center;
     justify-content: center;
     animation: fadeIn 0.3s ease;
+    pointer-events: auto;
 }
 
 .modal-content {

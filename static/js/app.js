@@ -4,16 +4,20 @@ class App {
         this.currentDisplayMode = 'text';
         this.messageHistory = [];
         this.isLoading = false;
+        this.scene3D = null;
         
         this.init();
     }
 
-    init() {
+    async init() {
         this.setupEventListeners();
         this.setupWebSocketHandlers();
         this.loadDefaultBackground();
         this.updateDisplayModeUI();
         this.loadBannerMessage();
+        
+        // Initialize 3D scene
+        await this.init3DScene();
         
         // Test banner visibility
         setTimeout(() => {
@@ -26,6 +30,20 @@ class App {
         }, 1000);
         
         console.log('✅ App initialized successfully');
+    }
+    
+    async init3DScene() {
+        try {
+            if (typeof Scene3DManager === 'undefined') {
+                console.error('❌ Scene3DManager not loaded');
+                return;
+            }
+            
+            this.scene3D = new Scene3DManager('app');
+            console.log('✅ 3D Scene manager initialized');
+        } catch (error) {
+            console.error('❌ Error initializing 3D scene:', error);
+        }
     }
 
     setupEventListeners() {
@@ -622,6 +640,19 @@ class App {
 
     addFloatingMessage(messageData) {
         console.log('📨 Adding floating message:', messageData);
+        
+        // Use 3D scene if available, otherwise fallback to 2D
+        if (this.scene3D && this.scene3D.font) {
+            console.log('📨 Using 3D scene rendering');
+            this.scene3D.addFloatingMessage(messageData);
+            console.log(`✅ Added 3D floating message`);
+        } else {
+            console.log('📨 Using fallback 2D rendering');
+            this.addFloatingMessage2D(messageData);
+        }
+    }
+    
+    addFloatingMessage2D(messageData) {
         const container = document.getElementById('floating-messages');
         if (!container) {
             console.error('❌ Floating messages container not found');

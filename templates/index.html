@@ -6,7 +6,8 @@
     <title>Rhetorical - SMS 3D Visualization</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Simple floating animations - no THREE.js needed -->
+    <!-- Three.js for 3D rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
     <div id="app">
@@ -140,6 +141,7 @@
     </div>
 
     <!-- Scripts -->
+    <script src="/static/js/scene3d.js"></script>
     <script src="/static/js/websocket.js"></script>
     <script src="/static/js/app.js"></script>
 </body>
