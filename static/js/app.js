@@ -648,22 +648,33 @@ class App {
                 <img src="${imageUrl}" alt="Generated image" onerror="this.style.display='none'">
             `;
         } else {
-            const messageText = messageData.body || 'No message content';
-            messageDiv.textContent = messageText;
-            messageDiv.setAttribute('data-text', messageText);
+            const messageText = messageData.body || messageData.filtered || 'No message content';
+            // Truncate to 5 words
+            const truncatedText = this.truncateToWords(messageText, 5);
+            messageDiv.textContent = truncatedText;
+            messageDiv.setAttribute('data-text', truncatedText);
         }
         
         container.appendChild(messageDiv);
         console.log('📨 Message div added to container');
         
-        // Remove after animation completes (30 seconds max)
-        setTimeout(() => {
-            if (messageDiv.parentNode) {
-                messageDiv.parentNode.removeChild(messageDiv);
-            }
-        }, 30000);
+        // Messages now stay for the duration of the session
+        // No auto-deletion - they will persist until page refresh
         
         console.log(`✅ Added floating ${isImage ? 'image' : 'text'} message`);
+    }
+    
+    truncateToWords(text, maxWords) {
+        if (!text || typeof text !== 'string') {
+            return '';
+        }
+        
+        const words = text.trim().split(/\s+/);
+        if (words.length <= maxWords) {
+            return text.trim();
+        }
+        
+        return words.slice(0, maxWords).join(' ') + '...';
     }
 
     showNotification(message, type = 'info') {

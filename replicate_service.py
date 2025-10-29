@@ -70,7 +70,8 @@ async def generate_image_with_fallback(prompt: str) -> Dict[str, Any]:
         return {
             "success": True,
             "imageUrl": image_url,
-            "prompt": prompt
+            "prompt": prompt,
+            "provider": "replicate"
         }
     except Exception as error:
         logger.error(f"Image generation failed, using fallback: {error}")
@@ -79,6 +80,7 @@ async def generate_image_with_fallback(prompt: str) -> Dict[str, Any]:
             "success": False,
             "imageUrl": "https://via.placeholder.com/512x512/cccccc/666666?text=Image+Generation+Failed",
             "prompt": prompt,
+            "provider": "replicate",
             "error": str(error)
         }
 

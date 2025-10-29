@@ -142,9 +142,8 @@ body.banner-visible .mode-chip {
 .floating-message {
     position: absolute;
     pointer-events: none;
-    animation: floatAround 20s linear infinite;
+    animation: floatUp 10s linear forwards;
     opacity: 0;
-    animation-fill-mode: forwards;
 }
 
 .floating-message.text {
@@ -276,7 +275,34 @@ body.banner-visible .mode-chip {
     display: block;
 }
 
-/* Floating Animation */
+/* Floating Animation - Messages stay visible */
+@keyframes floatUp {
+    0% {
+        opacity: 0;
+        transform: translateY(100vh) rotate(0deg) rotateX(0deg) rotateY(0deg) scale(0.8);
+    }
+    5% {
+        opacity: 1;
+    }
+    20% {
+        transform: translateY(75vh) rotate(90deg) rotateX(15deg) rotateY(10deg) scale(0.9);
+    }
+    40% {
+        transform: translateY(50vh) rotate(180deg) rotateX(0deg) rotateY(20deg) scale(1.0);
+    }
+    60% {
+        transform: translateY(30vh) rotate(270deg) rotateX(-15deg) rotateY(10deg) scale(1.0);
+    }
+    80% {
+        transform: translateY(15vh) rotate(340deg) rotateX(-5deg) rotateY(5deg) scale(0.95);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(10vh) rotate(360deg) rotateX(0deg) rotateY(0deg) scale(0.9);
+    }
+}
+
+/* Old animation kept for backwards compatibility */
 @keyframes floatAround {
     0% {
         opacity: 0;
@@ -305,47 +331,87 @@ body.banner-visible .mode-chip {
 
 /* Different floating patterns with 3D variations */
 .floating-message:nth-child(odd) {
-    animation: floatAround 25s linear infinite;
+    animation: floatUp 12s linear forwards;
     animation-delay: 0s;
 }
 
 .floating-message:nth-child(even) {
-    animation: floatAround 30s linear infinite;
-    animation-delay: 5s;
+    animation: floatUp 14s linear forwards;
+    animation-delay: 0.5s;
 }
 
 .floating-message:nth-child(3n) {
-    animation: floatAround 35s linear infinite;
-    animation-delay: 10s;
+    animation: floatUp 16s linear forwards;
+    animation-delay: 1s;
 }
 
 .floating-message:nth-child(4n) {
-    animation: floatAround 28s linear infinite;
-    animation-delay: 15s;
+    animation: floatUp 13s linear forwards;
+    animation-delay: 1.5s;
 }
 
 /* 3D text-specific animations */
 .floating-message.text:nth-child(odd) {
-    animation: floatAround3D 25s linear infinite;
+    animation: floatUp3D 12s linear forwards;
     animation-delay: 0s;
 }
 
 .floating-message.text:nth-child(even) {
-    animation: floatAround3D 30s linear infinite;
-    animation-delay: 5s;
+    animation: floatUp3D 14s linear forwards;
+    animation-delay: 0.5s;
 }
 
 .floating-message.text:nth-child(3n) {
-    animation: floatAround3D 35s linear infinite;
-    animation-delay: 10s;
+    animation: floatUp3D 16s linear forwards;
+    animation-delay: 1s;
 }
 
 .floating-message.text:nth-child(4n) {
-    animation: floatAround3D 28s linear infinite;
-    animation-delay: 15s;
+    animation: floatUp3D 13s linear forwards;
+    animation-delay: 1.5s;
 }
 
-/* Enhanced 3D floating animation for text */
+/* Enhanced 3D floating animation for text - Messages stay visible */
+@keyframes floatUp3D {
+    0% {
+        opacity: 0;
+        transform: translateY(100vh) rotate(0deg) rotateX(0deg) rotateY(0deg) translateZ(0px) scale(0.8);
+    }
+    8% {
+        opacity: 1;
+        transform: translateY(90vh) rotate(36deg) rotateX(15deg) rotateY(10deg) translateZ(20px) scale(0.9);
+    }
+    16% {
+        transform: translateY(80vh) rotate(72deg) rotateX(30deg) rotateY(20deg) translateZ(40px) scale(1.0);
+    }
+    24% {
+        transform: translateY(70vh) rotate(108deg) rotateX(20deg) rotateY(30deg) translateZ(30px) scale(1.05);
+    }
+    32% {
+        transform: translateY(60vh) rotate(144deg) rotateX(40deg) rotateY(40deg) translateZ(50px) scale(1.0);
+    }
+    40% {
+        transform: translateY(50vh) rotate(180deg) rotateX(0deg) rotateY(50deg) translateZ(60px) scale(1.1);
+    }
+    50% {
+        transform: translateY(40vh) rotate(216deg) rotateX(-20deg) rotateY(40deg) translateZ(50px) scale(1.05);
+    }
+    60% {
+        transform: translateY(30vh) rotate(252deg) rotateX(-30deg) rotateY(30deg) translateZ(40px) scale(1.0);
+    }
+    70% {
+        transform: translateY(22vh) rotate(288deg) rotateX(-15deg) rotateY(20deg) translateZ(30px) scale(0.95);
+    }
+    85% {
+        transform: translateY(15vh) rotate(324deg) rotateX(-5deg) rotateY(10deg) translateZ(20px) scale(0.9);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(10vh) rotate(360deg) rotateX(0deg) rotateY(0deg) translateZ(10px) scale(0.85);
+    }
+}
+
+/* Old 3D animation kept for backwards compatibility */
 @keyframes floatAround3D {
     0% {
         opacity: 0;

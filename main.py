@@ -20,7 +20,7 @@ load_dotenv()
 # Import our modules
 from database import init_db, insert_item, check_phone_number
 from twilio_service import init_twilio
-from replicate_service import generate_image_with_fallback
+from image_service import get_image, get_current_provider
 from models import MessageItem, BackgroundVideo, DisplayMode
 from profanity_filter import clean_text
 from background_service import BackgroundService
@@ -118,7 +118,20 @@ async def health_check():
     return {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
-        "environment": os.getenv("NODE_ENV", "development")
+        "environment": os.getenv("NODE_ENV", "development"),
+        "image_provider": get_current_provider()
+    }
+
+@app.get("/api/image-provider")
+async def get_image_provider():
+    """Get the currently configured image provider"""
+    return {
+        "provider": get_current_provider(),
+        "options": ["pexels", "replicate"],
+        "description": {
+            "pexels": "Free stock photo search (no AI generation)",
+            "replicate": "AI-powered image generation (paid service)"
+        }
     }
 
 @app.get("/ws")
@@ -170,12 +183,13 @@ async def test_image_generation(prompt: dict):
             raise HTTPException(status_code=400, detail="Prompt is required")
         
         logger.info(f"Testing image generation for prompt: {prompt['prompt']}")
-        image_result = await generate_image_with_fallback(prompt["prompt"])
+        image_result = await get_image(prompt["prompt"])
         
         return {
             "success": True,
             "result": image_result,
-            "message": "Image generation test completed"
+            "provider": get_current_provider(),
+            "message": f"Image generation test completed using {get_current_provider()}"
         }
     except Exception as error:
         logger.error(f"Test image generation failed: {error}")
@@ -194,7 +208,7 @@ async def message_incoming(request: Request):
         
         # Create message item
         if global_display_mode == 'image':
-            image_result = await generate_image_with_fallback(body)
+            image_result = await get_image(body)
             item = MessageItem(
                 sid=sms_sid,
                 from_number=from_number,
@@ -263,7 +277,7 @@ async def whatsapp_message_incoming(request: Request):
         
         # Create message item (same logic as SMS)
         if global_display_mode == 'image':
-            image_result = await generate_image_with_fallback(body)
+            image_result = await get_image(body)
             item = MessageItem(
                 sid=sms_sid,
                 from_number=from_number,

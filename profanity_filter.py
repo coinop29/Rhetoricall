@@ -3,9 +3,41 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Basic profanity filter - you can expand this list
+# Comprehensive profanity filter with common bad words
 PROFANITY_WORDS = {
-    'bad', 'word', 'example',  # Add your profanity words here
+    # Common profanity
+    'fuck', 'fucking', 'fucker', 'fucked', 'fucks', 'fck', 'fuk', 'f*ck', 'f**k',
+    'shit', 'shitty', 'shitting', 'shits', 'sht', 'sh*t', 'sh1t',
+    'ass', 'arse', 'asshole', 'arsehole', 'asses', 'a$$', 'a**',
+    'bitch', 'bitches', 'bitching', 'b*tch', 'biatch',
+    'damn', 'damned', 'dammit', 'damnit',
+    'hell', 'hells',
+    'crap', 'crappy', 'craps',
+    'piss', 'pissed', 'pissing',
+    'bastard', 'bastards',
+    'dick', 'dicks', 'd*ck',
+    'cock', 'cocks', 'c*ck',
+    'pussy', 'pussies', 'p*ssy',
+    'cunt', 'cunts', 'c*nt',
+    'slut', 'sluts', 'slutty',
+    'whore', 'whores',
+    'fag', 'faggot', 'fags',
+    'nigger', 'nigga', 'niggas', 'n*gger', 'n*gga',
+    'retard', 'retarded', 'retards',
+    'rape', 'raped', 'raping', 'rapist',
+    'nazi', 'nazis',
+    'kys', 'kill yourself',
+    'wtf', 'stfu', 'gtfo',
+    # Anatomical terms used offensively
+    'penis', 'vagina', 'testicles', 'anus', 'butthole',
+    'boobs', 'tits', 'titties', 'boobies',
+    # Sexual content
+    'sex', 'sexy', 'porn', 'pornography', 'orgasm', 'masturbate',
+    'blowjob', 'handjob', 'anal', 
+    # Drugs
+    'cocaine', 'heroin', 'meth', 'weed', 'marijuana', 'drugs',
+    # Violence
+    'kill', 'murder', 'die', 'death', 'suicide',
     # Add more words as needed
 }
 
