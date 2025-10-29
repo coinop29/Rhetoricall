@@ -62,8 +62,10 @@ class Scene3DManager {
         // Load font for 3D text
         await this.loadFont();
         
-        // Add texture loader
+        // Add texture loader with CORS support for external images
         this.textureLoader = new THREE.TextureLoader();
+        // Set crossOrigin to allow loading images from external domains (like Pexels)
+        this.textureLoader.crossOrigin = 'anonymous';
         
         // Add event listeners
         this.addEventListeners();
@@ -177,26 +179,38 @@ class Scene3DManager {
         // Create plane geometry
         const geometry = new THREE.PlaneGeometry(width, height);
 
-        // Load texture
+        // Load texture with proper error handling
+        console.log('📥 Loading texture from URL:', imageUrl);
         const texture = this.textureLoader.load(
             imageUrl,
             (loadedTexture) => {
-                console.log('✅ Image texture loaded:', imageUrl);
+                console.log('✅ Image texture loaded successfully:', imageUrl);
+                // Ensure texture is properly configured
+                loadedTexture.needsUpdate = true;
             },
-            undefined,
+            (progress) => {
+                if (progress.lengthComputable) {
+                    const percentComplete = progress.loaded / progress.total * 100;
+                    console.log('📥 Texture loading progress:', Math.round(percentComplete) + '%');
+                }
+            },
             (error) => {
-                console.error('❌ Error loading image texture:', error);
+                console.error('❌ Error loading image texture:', error, imageUrl);
+                console.error('❌ This might be a CORS issue or invalid URL');
             }
         );
 
-        // Create material with some depth effect
+        // Create material with texture
+        // Note: Texture might not be loaded yet, but Three.js will update when ready
         const material = new THREE.MeshStandardMaterial({
             map: texture,
             side: THREE.DoubleSide,
-            transparent: true,
+            transparent: false,  // Changed to false for better visibility
             metalness: 0.2,
             roughness: 0.8
         });
+        
+        console.log('✅ Created 3D image material with texture');
 
         // Create mesh
         const imageMesh = new THREE.Mesh(geometry, material);
@@ -216,7 +230,17 @@ class Scene3DManager {
     }
 
     addFloatingMessage(messageData) {
-        const isImage = messageData.imageUrl && messageData.image_generation_status === 'success';
+        // Handle both camelCase and underscore field names from backend
+        const imageUrl = messageData.imageUrl || messageData.image_url;
+        const imageStatus = messageData.imageGenerationStatus || messageData.image_generation_status;
+        const isImage = imageUrl && imageStatus === 'success';
+        
+        console.log('📨 3D Scene - Image check:', {
+            imageUrl: imageUrl,
+            imageStatus: imageStatus,
+            isImage: isImage,
+            fullData: messageData
+        });
         
         // Random starting position - deep inside the screen coming toward viewer
         // Cover entire screen width and height
@@ -227,7 +251,8 @@ class Scene3DManager {
         let object;
 
         if (isImage) {
-            object = this.create3DImage(messageData.imageUrl, {
+            console.log('📨 Creating 3D image with URL:', imageUrl);
+            object = this.create3DImage(imageUrl, {
                 position: { x: startX, y: startY, z: startZ },
                 width: 8,
                 height: 8
@@ -405,41 +430,57 @@ class Scene3DManager {
                     object.position.y += object.userData.velocity.y;
                 }
                 
-                // Smooth boundary handling - slow down near edges instead of bouncing
-                const boundaryX = 70;
-                const boundaryY = 50;
+                // Strict boundary constraints - keep objects within visible screen bounds
+                // Based on camera FOV 90 and position z=30, visible area is roughly:
+                // X: -35 to +35 (at z=0)
+                // Y: -25 to +25 (at z=0)
+                // These bounds scale with z position
+                const safeZ = Math.max(-15, Math.min(object.position.z, 25));
+                const zFactor = Math.abs(safeZ) / 30; // Normalize based on camera distance
                 
-                if (Math.abs(object.position.x) > boundaryX * 0.7) {
-                    // Smoothly reverse direction near boundary
-                    const factor = (Math.abs(object.position.x) - boundaryX * 0.7) / (boundaryX * 0.3);
-                    object.userData.velocity.x *= (1 - factor * 0.1);
-                    if (Math.abs(object.position.x) > boundaryX) {
-                        object.userData.velocity.x *= -0.8; // Reverse direction smoothly
-                    }
+                // Calculate visible bounds based on current z position
+                const maxX = 35 + zFactor * 15;  // Wider when closer
+                const maxY = 25 + zFactor * 10;  // Taller when closer
+                
+                // Strict boundary enforcement - clamp position and reverse velocity
+                if (object.position.x > maxX) {
+                    object.position.x = maxX;
+                    object.userData.velocity.x = Math.abs(object.userData.velocity.x) * -0.8;
+                } else if (object.position.x < -maxX) {
+                    object.position.x = -maxX;
+                    object.userData.velocity.x = Math.abs(object.userData.velocity.x) * 0.8;
                 }
                 
-                if (Math.abs(object.position.y) > boundaryY * 0.7) {
-                    const factor = (Math.abs(object.position.y) - boundaryY * 0.7) / (boundaryY * 0.3);
-                    object.userData.velocity.y *= (1 - factor * 0.1);
-                    if (Math.abs(object.position.y) > boundaryY) {
-                        object.userData.velocity.y *= -0.8; // Reverse direction smoothly
-                    }
+                if (object.position.y > maxY) {
+                    object.position.y = maxY;
+                    object.userData.velocity.y = Math.abs(object.userData.velocity.y) * -0.8;
+                } else if (object.position.y < -maxY) {
+                    object.position.y = -maxY;
+                    object.userData.velocity.y = Math.abs(object.userData.velocity.y) * 0.8;
                 }
                 
-                // Keep object in visible range (z between -20 and 40)
-                if (object.position.z > 40) {
-                    // Slow down forward movement and maintain position
-                    object.userData.velocity.z *= 0.95;
-                    object.position.z = Math.min(object.position.z, 40);
+                // Keep object in visible z range (between -15 and 25)
+                if (object.position.z > 25) {
+                    object.position.z = 25;
+                    object.userData.velocity.z *= -0.5; // Reverse and slow down
+                } else if (object.position.z < -15) {
+                    object.position.z = -15;
+                    object.userData.velocity.z = Math.abs(object.userData.velocity.z);
                 }
+                
+                // Prevent velocity from accumulating too much
+                const maxVelocity = 0.12;
+                object.userData.velocity.x = Math.max(-maxVelocity, Math.min(maxVelocity, object.userData.velocity.x));
+                object.userData.velocity.y = Math.max(-maxVelocity, Math.min(maxVelocity, object.userData.velocity.y));
+                object.userData.velocity.z = Math.max(-maxVelocity * 0.5, Math.min(maxVelocity * 0.5, object.userData.velocity.z));
                 
                 // Add slight random drift changes for more organic movement
                 if (object.userData.lifetime % 300 === 0) {
-                    object.userData.velocity.x += (Math.random() - 0.5) * 0.02;
-                    object.userData.velocity.y += (Math.random() - 0.5) * 0.02;
-                    // Clamp velocity to reasonable range
-                    object.userData.velocity.x = Math.max(-0.15, Math.min(0.15, object.userData.velocity.x));
-                    object.userData.velocity.y = Math.max(-0.15, Math.min(0.15, object.userData.velocity.y));
+                    object.userData.velocity.x += (Math.random() - 0.5) * 0.01;
+                    object.userData.velocity.y += (Math.random() - 0.5) * 0.01;
+                    // Clamp velocity after drift change
+                    object.userData.velocity.x = Math.max(-maxVelocity, Math.min(maxVelocity, object.userData.velocity.x));
+                    object.userData.velocity.y = Math.max(-maxVelocity, Math.min(maxVelocity, object.userData.velocity.y));
                 }
             }
             
@@ -450,12 +491,13 @@ class Scene3DManager {
                 object.rotation.z += object.userData.rotation.z;
             }
             
-            // Messages stay forever - only remove if they go way too far (safety check)
-            // Only remove if object somehow goes way off screen or becomes invalid
-            if (Math.abs(object.position.x) > 200 || 
-                Math.abs(object.position.y) > 200 || 
-                object.position.z < -300 || 
-                object.position.z > 200) {
+            // Messages stay forever - only remove if they somehow escape bounds (safety check)
+            // This should rarely happen now with strict boundary clamping
+            if (Math.abs(object.position.x) > 100 || 
+                Math.abs(object.position.y) > 100 || 
+                object.position.z < -250 || 
+                object.position.z > 100) {
+                console.warn('⚠️ Object escaped bounds, removing:', object.position);
                 this.scene.remove(object);
                 if (object.geometry) object.geometry.dispose();
                 if (object.material) {
@@ -466,7 +508,6 @@ class Scene3DManager {
                     }
                 }
                 this.floatingObjects.splice(index, 1);
-                console.log('🗑️ Removed object that went off-screen');
             }
         });
         
