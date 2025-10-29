@@ -248,19 +248,30 @@ class Scene3DManager {
         }
 
         if (object) {
-            // Set velocity to come forward (positive Z) and move around the screen
+            // Set velocity - slower, smoother movement
+            // Come forward slowly, then float around
             object.userData.velocity = {
-                x: (Math.random() - 0.5) * 0.3,      // Move horizontally across screen
-                y: (Math.random() - 0.5) * 0.3,      // Move vertically across screen
-                z: 0.5 + Math.random() * 0.5         // Come forward from deep inside (0.5 to 1.0 units per frame)
+                x: (Math.random() - 0.5) * 0.08,      // Gentle horizontal drift
+                y: (Math.random() - 0.5) * 0.08,      // Gentle vertical drift
+                z: 0.08 + Math.random() * 0.05        // Slow forward movement (0.08 to 0.13)
             };
             
-            // Enhanced rotation for more dynamic effect
+            // Store initial position for orbiting
+            object.userData.initialPosition = { x: startX, y: startY, z: startZ };
+            object.userData.orbitRadius = 5 + Math.random() * 10;
+            object.userData.orbitSpeed = 0.001 + Math.random() * 0.002;
+            object.userData.orbitAngle = Math.random() * Math.PI * 2;
+            
+            // Smooth rotation
             object.userData.rotation = {
-                x: (Math.random() - 0.5) * 0.02,
-                y: (Math.random() - 0.5) * 0.02,
-                z: (Math.random() - 0.5) * 0.02
+                x: (Math.random() - 0.5) * 0.005,
+                y: (Math.random() - 0.5) * 0.005,
+                z: (Math.random() - 0.5) * 0.005
             };
+            
+            // Track when object reached visible area
+            object.userData.hasReachedVisible = false;
+            object.userData.lifetime = 0;
             
             this.scene.add(object);
             this.floatingObjects.push(object);
@@ -358,10 +369,79 @@ class Scene3DManager {
         this.floatingObjects.forEach((object, index) => {
             if (!object.userData || !object.userData.velocity) return;
             
-            // Move object
-            object.position.x += object.userData.velocity.x;
-            object.position.y += object.userData.velocity.y;
-            object.position.z += object.userData.velocity.z;
+            // Increment lifetime
+            object.userData.lifetime++;
+            
+            // Phase 1: Come forward from deep inside (until z > -20)
+            if (object.position.z < -20) {
+                // Still emerging - keep moving forward
+                object.position.z += object.userData.velocity.z;
+                
+                // Add some gentle drift
+                object.position.x += object.userData.velocity.x * 0.3;
+                object.position.y += object.userData.velocity.y * 0.3;
+                
+                // Mark when it reaches visible area
+                if (object.position.z > -20) {
+                    object.userData.hasReachedVisible = true;
+                }
+            } else {
+                // Phase 2: Object is visible - float around smoothly
+                object.userData.hasReachedVisible = true;
+                
+                // Reduce forward movement significantly
+                object.position.z += object.userData.velocity.z * 0.2;
+                
+                // Add orbital motion for more natural floating
+                if (object.userData.orbitRadius) {
+                    object.userData.orbitAngle += object.userData.orbitSpeed;
+                    const orbitX = Math.cos(object.userData.orbitAngle) * object.userData.orbitRadius * 0.1;
+                    const orbitY = Math.sin(object.userData.orbitAngle) * object.userData.orbitRadius * 0.1;
+                    
+                    object.position.x += object.userData.velocity.x + orbitX;
+                    object.position.y += object.userData.velocity.y + orbitY;
+                } else {
+                    object.position.x += object.userData.velocity.x;
+                    object.position.y += object.userData.velocity.y;
+                }
+                
+                // Smooth boundary handling - slow down near edges instead of bouncing
+                const boundaryX = 70;
+                const boundaryY = 50;
+                
+                if (Math.abs(object.position.x) > boundaryX * 0.7) {
+                    // Smoothly reverse direction near boundary
+                    const factor = (Math.abs(object.position.x) - boundaryX * 0.7) / (boundaryX * 0.3);
+                    object.userData.velocity.x *= (1 - factor * 0.1);
+                    if (Math.abs(object.position.x) > boundaryX) {
+                        object.userData.velocity.x *= -0.8; // Reverse direction smoothly
+                    }
+                }
+                
+                if (Math.abs(object.position.y) > boundaryY * 0.7) {
+                    const factor = (Math.abs(object.position.y) - boundaryY * 0.7) / (boundaryY * 0.3);
+                    object.userData.velocity.y *= (1 - factor * 0.1);
+                    if (Math.abs(object.position.y) > boundaryY) {
+                        object.userData.velocity.y *= -0.8; // Reverse direction smoothly
+                    }
+                }
+                
+                // Keep object in visible range (z between -20 and 40)
+                if (object.position.z > 40) {
+                    // Slow down forward movement and maintain position
+                    object.userData.velocity.z *= 0.95;
+                    object.position.z = Math.min(object.position.z, 40);
+                }
+                
+                // Add slight random drift changes for more organic movement
+                if (object.userData.lifetime % 300 === 0) {
+                    object.userData.velocity.x += (Math.random() - 0.5) * 0.02;
+                    object.userData.velocity.y += (Math.random() - 0.5) * 0.02;
+                    // Clamp velocity to reasonable range
+                    object.userData.velocity.x = Math.max(-0.15, Math.min(0.15, object.userData.velocity.x));
+                    object.userData.velocity.y = Math.max(-0.15, Math.min(0.15, object.userData.velocity.y));
+                }
+            }
             
             // Auto-rotate (unless being dragged)
             if (object !== this.selectedObject && object.userData.rotation) {
@@ -370,34 +450,12 @@ class Scene3DManager {
                 object.rotation.z += object.userData.rotation.z;
             }
             
-            // Boundary checks - bounce off edges (horizontal)
-            if (Math.abs(object.position.x) > 60) {
-                object.userData.velocity.x *= -1;
-            }
-            
-            // Boundary checks - bounce off edges (vertical)
-            if (Math.abs(object.position.y) > 45) {
-                object.userData.velocity.y *= -1;
-            }
-            
-            // When object comes too close to camera (z > 50), slow it down and fade it
-            if (object.position.z > 50) {
-                object.userData.velocity.z *= 0.95;  // Slow down
-                object.userData.velocity.x *= 0.98;
-                object.userData.velocity.y *= 0.98;
-                
-                // Apply some transparency as it gets very close
-                if (object.position.z > 60) {
-                    const opacity = Math.max(0, 1 - (object.position.z - 60) / 20);
-                    if (object.material) {
-                        object.material.opacity = opacity;
-                        object.material.transparent = true;
-                    }
-                }
-            }
-            
-            // Remove objects that are too far forward or too transparent
-            if (object.position.z > 80 || (object.material && object.material.opacity < 0.1)) {
+            // Messages stay forever - only remove if they go way too far (safety check)
+            // Only remove if object somehow goes way off screen or becomes invalid
+            if (Math.abs(object.position.x) > 200 || 
+                Math.abs(object.position.y) > 200 || 
+                object.position.z < -300 || 
+                object.position.z > 200) {
                 this.scene.remove(object);
                 if (object.geometry) object.geometry.dispose();
                 if (object.material) {
@@ -408,7 +466,7 @@ class Scene3DManager {
                     }
                 }
                 this.floatingObjects.splice(index, 1);
-                console.log('🗑️ Removed object that came too close');
+                console.log('🗑️ Removed object that went off-screen');
             }
         });
         
