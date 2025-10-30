@@ -10,6 +10,7 @@ import asyncio
 import json
 import logging
 from datetime import datetime
+import time
 import uvicorn
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
@@ -332,6 +333,74 @@ async def whatsapp_message_incoming(request: Request):
             <Message>Thanks for your contribution!</Message>
         </Response>"""
         return Response(content=twiml_response, media_type="text/xml")
+
+@app.post("/api/dev/messageIncoming")
+async def dev_message_incoming(payload: dict):
+    """Local testing endpoint to simulate Twilio webhook without public URL.
+    Accepts JSON: { body, from, to, sid } and follows the same processing
+    as /api/messageIncoming, returning a JSON result.
+    """
+    try:
+        body = (payload.get("body") or "").strip()
+        if not body:
+            raise HTTPException(status_code=400, detail="body is required")
+        from_number = payload.get("from") or "+19999999999"
+        to_number = payload.get("to") or "+18888888888"
+        sms_sid = payload.get("sid") or f"DEV-{int(time.time()*1000)}"
+
+        logger.info(f"[DEV] Simulating SMS: {body} from {from_number}")
+
+        # Build MessageItem with same logic as Twilio handler
+        if global_display_mode == 'image':
+            image_result = await get_image(body)
+            item = MessageItem(
+                sid=sms_sid,
+                from_number=from_number,
+                to_number=to_number,
+                body=body,
+                filtered=clean_text(body),
+                image_url=image_result["imageUrl"],
+                image_generation_status="success" if image_result["success"] else "failed",
+                image_prompt=image_result["prompt"],
+                display_mode="image"
+            )
+        else:
+            item = MessageItem(
+                sid=sms_sid,
+                from_number=from_number,
+                to_number=to_number,
+                body=body,
+                filtered=clean_text(body),
+                image_url=None,
+                image_generation_status="skipped",
+                image_prompt=body,
+                display_mode="text"
+            )
+
+        # Check if phone number exists (same side-effect as prod path)
+        is_exists = await check_phone_number(item.from_number)
+
+        # Insert item
+        await insert_item(item.dict())
+
+        # Broadcast to clients
+        item_dict = item.dict()
+        if item_dict.get('created_at'):
+            item_dict['created_at'] = item_dict['created_at'].isoformat()
+        await manager.broadcast({"type": "messageIncoming", "filtered": item_dict})
+
+        return {
+            "success": True,
+            "simulated": True,
+            "stored": True,
+            "exists": is_exists,
+            "item": item_dict
+        }
+    except HTTPException:
+        raise
+    except Exception as error:
+        logger.error(f"Error in /api/dev/messageIncoming: {error}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 # Background video endpoints
 @app.post("/api/upload")

@@ -28,7 +28,7 @@ body {
     right: 0;
     background: linear-gradient(135deg, rgba(76, 175, 80, 0.95), rgba(56, 142, 60, 0.95));
     color: white;
-    padding: 12px 20px;
+    padding: 18px 28px;
     z-index: 2000;
     backdrop-filter: blur(10px);
     border-bottom: 1px solid rgba(255, 255, 255, 0.2);
@@ -50,13 +50,14 @@ body {
 }
 
 #banner-text {
-    font-size: 16px;
+    font-size: 20px;
     font-weight: 500;
     flex: 1;
     margin-right: 20px;
 }
 
 .close-banner-btn {
+    display: none;
     background: rgba(255, 255, 255, 0.2);
     border: none;
     color: white;
@@ -78,15 +79,15 @@ body {
 
 /* Adjust other elements when banner is visible */
 body.banner-visible {
-    padding-top: 60px;
+    padding-top: 90px;
 }
 
 body.banner-visible #app {
-    height: calc(100vh - 60px);
+    height: calc(100vh - 90px);
 }
 
 body.banner-visible .mode-chip {
-    top: 80px;
+    top: 110px;
 }
 
 /* Background Video */

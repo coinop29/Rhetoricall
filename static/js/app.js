@@ -5,6 +5,7 @@ class App {
         this.messageHistory = [];
         this.isLoading = false;
         this.scene3D = null;
+        this.currentTextColor = '#2F24C1';
         
         this.init();
     }
@@ -71,6 +72,22 @@ class App {
             backgroundSettingsBtn.addEventListener('click', () => this.showBackgroundSettings());
         }
 
+        // Send test message (local Twilio simulator)
+        const sendTestBtn = document.getElementById('send-test');
+        if (sendTestBtn) {
+            sendTestBtn.addEventListener('click', () => this.openSendTestPrompt());
+        }
+
+        // Text color picker
+        const colorInput = document.getElementById('text-color');
+        if (colorInput) {
+            colorInput.value = this.currentTextColor;
+            colorInput.addEventListener('input', (e) => {
+                this.currentTextColor = e.target.value || '#2F24C1';
+                this.showNotification(`Text color set to ${this.currentTextColor}`, 'success');
+            });
+        }
+
         // Close notification
         const closeNotificationBtn = document.getElementById('close-notification');
         if (closeNotificationBtn) {
@@ -83,11 +100,7 @@ class App {
             closeBackgroundSettingsBtn.addEventListener('click', () => this.hideBackgroundSettings());
         }
 
-        // Close banner
-        const closeBannerBtn = document.getElementById('close-banner');
-        if (closeBannerBtn) {
-            closeBannerBtn.addEventListener('click', () => this.hideBanner());
-        }
+        // Close banner button disabled (banner can be hidden via settings only)
 
         // Banner settings
         const bannerSettingsBtn = document.getElementById('banner-settings');
@@ -130,6 +143,33 @@ class App {
         
         // Setup banner controls
         this.setupBannerControls();
+    }
+
+    async openSendTestPrompt() {
+        const defaultBody = this.currentDisplayMode === 'image' ? 'A neon skyline with flying cars' : 'Hello from local dev!';
+        const body = window.prompt('Enter test message text:', defaultBody);
+        if (!body || !body.trim()) return;
+
+        try {
+            const response = await fetch('/api/dev/messageIncoming', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    body: body.trim(),
+                    from: '+15555550123',
+                    to: '+15555550124'
+                })
+            });
+            if (response.ok) {
+                this.showNotification('Test message sent', 'success');
+            } else {
+                const err = await response.text();
+                this.showNotification('Failed to send test message: ' + err, 'error');
+            }
+        } catch (e) {
+            console.error(e);
+            this.showNotification('Error sending test message', 'error');
+        }
     }
 
     setupWebSocketHandlers() {
@@ -644,7 +684,8 @@ class App {
         // Use 3D scene if available, otherwise fallback to 2D
         if (this.scene3D && this.scene3D.font) {
             console.log('📨 Using 3D scene rendering');
-            this.scene3D.addFloatingMessage(messageData);
+            const payload = { ...messageData, textColor: this.currentTextColor };
+            this.scene3D.addFloatingMessage(payload);
             console.log(`✅ Added 3D floating message`);
         } else {
             console.log('📨 Using fallback 2D rendering');
@@ -790,13 +831,6 @@ class App {
             document.body.classList.add('banner-visible');
             
             console.log('✅ Banner shown:', message);
-            
-            // Auto-hide after 10 seconds if not manually closed
-            setTimeout(() => {
-                if (banner.classList.contains('show')) {
-                    this.hideBanner();
-                }
-            }, 10000);
         }
     }
 

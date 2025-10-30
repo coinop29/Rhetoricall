@@ -13,6 +13,11 @@ class Scene3DManager {
         this.mouse = new THREE.Vector2();
         this.selectedObject = null;
         this.isDragging = false;
+        this.isOrbiting = false;
+        this.lastMouse = { x: 0, y: 0 };
+        this.dragPlane = new THREE.Plane();
+        this.dragIntersection = new THREE.Vector3();
+        this.dragOffset = new THREE.Vector3();
         
         this.init();
     }
@@ -169,6 +174,106 @@ class Scene3DManager {
         return textMesh;
     }
 
+    parseColorToInt(input) {
+        if (typeof input === 'number') return input;
+        if (typeof input === 'string') {
+            if (input.startsWith('#')) {
+                const hex = input.slice(1);
+                const value = parseInt(hex, 16);
+                if (!isNaN(value)) return value;
+            }
+            // Try plain hex without '#'
+            const value = parseInt(input, 16);
+            if (!isNaN(value)) return value;
+        }
+        return 0x2F24C1;
+    }
+
+    createTextParticles(text, options = {}) {
+        if (!this.font) {
+            console.error('❌ Font not loaded yet');
+            return null;
+        }
+
+        const {
+            size = 10,
+            height = 1.5,
+            position = { x: 0, y: 0, z: 0 },
+            color = 0x2F24C1,
+            particleCount = 2000
+        } = options;
+
+        // Build text geometry to sample target positions
+        const textGeometry = new THREE.TextGeometry(text, {
+            font: this.font,
+            size: size,
+            height: height,
+            curveSegments: 12,
+            bevelEnabled: true,
+            bevelThickness: 0.1,
+            bevelSize: 0.05,
+            bevelOffset: 0,
+            bevelSegments: 5
+        });
+        textGeometry.computeBoundingBox();
+        const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
+        textGeometry.translate(centerOffset, 0, 0);
+
+        // Convert to non-indexed to get a dense position buffer
+        const nonIndexed = textGeometry.toNonIndexed();
+        const srcPositions = nonIndexed.attributes.position.array;
+        const available = srcPositions.length / 3;
+        const count = Math.min(particleCount, available);
+
+        // Prepare target positions sampled from text geometry
+        const targetPositions = new Float32Array(count * 3);
+        for (let i = 0; i < count; i++) {
+            const idx = Math.floor((i / count) * available) * 3; // even sampling
+            targetPositions[i * 3 + 0] = srcPositions[idx + 0] + position.x;
+            targetPositions[i * 3 + 1] = srcPositions[idx + 1] + position.y;
+            targetPositions[i * 3 + 2] = srcPositions[idx + 2] + position.z;
+        }
+
+        // Initial positions: random sphere around center
+        const startPositions = new Float32Array(count * 3);
+        for (let i = 0; i < count; i++) {
+            const r = 40 * Math.cbrt(Math.random());
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(2 * Math.random() - 1);
+            const x = r * Math.sin(phi) * Math.cos(theta) + position.x;
+            const y = r * Math.sin(phi) * Math.sin(theta) + position.y;
+            const z = r * Math.cos(phi) + position.z - 30; // slightly in front
+            startPositions[i * 3 + 0] = x;
+            startPositions[i * 3 + 1] = y;
+            startPositions[i * 3 + 2] = z;
+        }
+
+        const geom = new THREE.BufferGeometry();
+        geom.setAttribute('position', new THREE.BufferAttribute(startPositions, 3));
+
+        const mat = new THREE.PointsMaterial({
+            color: color,
+            size: 0.6,
+            sizeAttenuation: true,
+            transparent: true,
+            opacity: 0.95
+        });
+
+        const points = new THREE.Points(geom, mat);
+        points.userData.isParticles = true;
+        points.userData.particleTargetPositions = targetPositions;
+        points.userData.morphProgress = 0;
+        points.userData.morphSpeed = 0.06; // higher is faster morph
+        points.userData.finalTextSpec = { text, size, height, color, position };
+        points.userData.rotation = {
+            x: (Math.random() - 0.5) * 0.003,
+            y: (Math.random() - 0.5) * 0.003,
+            z: (Math.random() - 0.5) * 0.003
+        };
+
+        return points;
+    }
+
     create3DImage(imageUrl, options = {}) {
         const {
             width = 8,
@@ -242,11 +347,10 @@ class Scene3DManager {
             fullData: messageData
         });
         
-        // Random starting position - deep inside the screen coming toward viewer
-        // Cover entire screen width and height
-        const startX = (Math.random() - 0.5) * 100;  // Wider range for full screen
-        const startY = (Math.random() - 0.5) * 80;   // Full height range
-        const startZ = -150 - Math.random() * 50;     // Start deep in the screen (-150 to -200)
+        // New behavior: latest message appears big and centered; older ones float backward
+        const startX = 0;
+        const startY = 0;
+        const startZ = 0; // Center front
 
         let object;
 
@@ -254,8 +358,8 @@ class Scene3DManager {
             console.log('📨 Creating 3D image with URL:', imageUrl);
             object = this.create3DImage(imageUrl, {
                 position: { x: startX, y: startY, z: startZ },
-                width: 8,
-                height: 8
+                width: 10,
+                height: 10
             });
         } else {
             // Truncate text to 5 words
@@ -265,42 +369,50 @@ class Scene3DManager {
                 text = words.slice(0, 5).join(' ') + '...';
             }
 
-            object = this.create3DText(text, {
+            // Create particle system that will morph into the 3D text
+            const selectedColor = this.parseColorToInt(messageData.textColor || 0x2F24C1);
+            object = this.createTextParticles(text, {
                 position: { x: startX, y: startY, z: startZ },
-                size: 2,
-                height: 0.5
+                size: 6,
+                height: 1.0,
+                particleCount: 2000,
+                color: selectedColor
             });
         }
 
         if (object) {
-            // Set velocity - slower, smoother movement
-            // Come forward slowly, then float around
+            // Queue-flow behavior: newest stays centered, older ones push backward
+            object.userData.useQueueFlow = true;
             object.userData.velocity = {
-                x: (Math.random() - 0.5) * 0.08,      // Gentle horizontal drift
-                y: (Math.random() - 0.5) * 0.08,      // Gentle vertical drift
-                z: 0.08 + Math.random() * 0.05        // Slow forward movement (0.08 to 0.13)
+                x: (Math.random() - 0.5) * 0.08,
+                y: (Math.random() - 0.5) * 0.08,
+                z: 0
             };
-            
-            // Store initial position for orbiting
-            object.userData.initialPosition = { x: startX, y: startY, z: startZ };
-            object.userData.orbitRadius = 5 + Math.random() * 10;
-            object.userData.orbitSpeed = 0.001 + Math.random() * 0.002;
-            object.userData.orbitAngle = Math.random() * Math.PI * 2;
-            
-            // Smooth rotation
             object.userData.rotation = {
-                x: (Math.random() - 0.5) * 0.005,
-                y: (Math.random() - 0.5) * 0.005,
-                z: (Math.random() - 0.5) * 0.005
+                x: (Math.random() - 0.5) * 0.006,
+                y: (Math.random() - 0.5) * 0.006,
+                z: (Math.random() - 0.5) * 0.006
             };
-            
-            // Track when object reached visible area
-            object.userData.hasReachedVisible = false;
+            object.userData.targetZ = 0;
+            object.userData.targetScale = 1.0;
             object.userData.lifetime = 0;
             
             this.scene.add(object);
             this.floatingObjects.push(object);
             console.log(`✅ Added 3D ${isImage ? 'image' : 'text'} to scene at z=${startZ}`);
+
+            // Push existing objects backward and slightly shrink them
+            const pushBackStep = 20; // how far to move back per new message
+            const minZ = -220;
+            this.floatingObjects.forEach((obj) => {
+                if (obj === object) return;
+                if (!obj.userData) obj.userData = {};
+                obj.userData.useQueueFlow = true;
+                const currentTargetZ = (obj.userData.targetZ !== undefined) ? obj.userData.targetZ : obj.position.z;
+                obj.userData.targetZ = Math.max(minZ, currentTargetZ - pushBackStep);
+                const currentScale = obj.scale.x;
+                obj.userData.targetScale = Math.max(0.4, currentScale * 0.9);
+            });
         }
     }
 
@@ -312,6 +424,7 @@ class Scene3DManager {
         this.renderer.domElement.addEventListener('mousedown', (e) => this.onMouseDown(e));
         this.renderer.domElement.addEventListener('mousemove', (e) => this.onMouseMove(e));
         this.renderer.domElement.addEventListener('mouseup', (e) => this.onMouseUp(e));
+        this.renderer.domElement.addEventListener('wheel', (e) => this.onMouseWheel(e), { passive: true });
         
         // Handle touch events for mobile
         this.renderer.domElement.addEventListener('touchstart', (e) => this.onTouchStart(e));
@@ -338,25 +451,67 @@ class Scene3DManager {
             this.selectedObject = intersects[0].object;
             this.isDragging = true;
             this.renderer.domElement.style.cursor = 'grabbing';
+            // Setup a drag plane through the object's current position, facing the camera
+            this.dragPlane.setFromNormalAndCoplanarPoint(
+                this.camera.getWorldDirection(new THREE.Vector3()).clone().negate(),
+                this.selectedObject.position.clone()
+            );
+            // Compute initial intersection and offset to maintain relative grab point
+            if (this.raycaster.ray.intersectPlane(this.dragPlane, this.dragIntersection)) {
+                this.dragOffset.copy(this.selectedObject.position).sub(this.dragIntersection);
+            } else {
+                this.dragOffset.set(0, 0, 0);
+            }
+        } else {
+            // Start orbit mode when clicking on empty space
+            this.isOrbiting = true;
+            this.lastMouse.x = event.clientX;
+            this.lastMouse.y = event.clientY;
+            this.renderer.domElement.style.cursor = 'grab';
         }
     }
 
     onMouseMove(event) {
-        if (!this.isDragging || !this.selectedObject) return;
-        
-        this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-        this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-        
-        // Rotate the selected object based on mouse movement
-        const rotationSpeed = 0.5;
-        this.selectedObject.rotation.y += event.movementX * 0.01 * rotationSpeed;
-        this.selectedObject.rotation.x += event.movementY * 0.01 * rotationSpeed;
+        // Dragging an object: project ray to drag plane and move selected only
+        if (this.isDragging && this.selectedObject) {
+            this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            this.raycaster.setFromCamera(this.mouse, this.camera);
+            if (this.raycaster.ray.intersectPlane(this.dragPlane, this.dragIntersection)) {
+                const newPos = this.dragIntersection.clone().add(this.dragOffset);
+                this.selectedObject.position.copy(newPos);
+            }
+            return;
+        }
+
+        // Orbiting the scene when dragging empty space
+        if (this.isOrbiting) {
+            const dx = (event.clientX - this.lastMouse.x) || 0;
+            const dy = (event.clientY - this.lastMouse.y) || 0;
+            this.lastMouse.x = event.clientX;
+            this.lastMouse.y = event.clientY;
+            // Rotate the whole scene slightly
+            this.scene.rotation.y += dx * 0.005;
+            this.scene.rotation.x += dy * 0.005;
+            // Clamp vertical rotation to avoid flipping
+            const maxTilt = Math.PI / 2 - 0.1;
+            this.scene.rotation.x = Math.max(-maxTilt, Math.min(maxTilt, this.scene.rotation.x));
+        }
     }
 
     onMouseUp(event) {
         this.isDragging = false;
         this.selectedObject = null;
+        this.isOrbiting = false;
         this.renderer.domElement.style.cursor = 'auto';
+    }
+
+    onMouseWheel(event) {
+        // Scroll to zoom the camera in/out
+        const zoomDelta = event.deltaY * 0.01;
+        const minZ = 8;
+        const maxZ = 150;
+        this.camera.position.z = Math.max(minZ, Math.min(maxZ, this.camera.position.z + zoomDelta));
     }
 
     onTouchStart(event) {
@@ -392,57 +547,123 @@ class Scene3DManager {
         
         // Update floating objects
         this.floatingObjects.forEach((object, index) => {
-            if (!object.userData || !object.userData.velocity) return;
+            if (!object.userData) return;
             
             // Increment lifetime
-            object.userData.lifetime++;
-            
+            object.userData.lifetime = (object.userData.lifetime || 0) + 1;
+
+            // Particle morphing phase: move points toward target positions
+            if (object.userData.isParticles) {
+                const geom = object.geometry;
+                const posAttr = geom.getAttribute('position');
+                const positions = posAttr.array;
+                const targets = object.userData.particleTargetPositions;
+                const count = positions.length / 3;
+                let reached = 0;
+                const speed = object.userData.morphSpeed || 0.1;
+                for (let i = 0; i < count; i++) {
+                    const i3 = i * 3;
+                    // Lerp toward target
+                    const tx = targets[i3 + 0];
+                    const ty = targets[i3 + 1];
+                    const tz = targets[i3 + 2];
+                    positions[i3 + 0] += (tx - positions[i3 + 0]) * speed;
+                    positions[i3 + 1] += (ty - positions[i3 + 1]) * speed;
+                    positions[i3 + 2] += (tz - positions[i3 + 2]) * speed;
+                    // Check closeness
+                    const dx = tx - positions[i3 + 0];
+                    const dy = ty - positions[i3 + 1];
+                    const dz = tz - positions[i3 + 2];
+                    if ((dx*dx + dy*dy + dz*dz) < 0.04) reached++;
+                }
+                posAttr.needsUpdate = true;
+
+                // Gentle rotation for visual interest
+                if (object.userData.rotation) {
+                    object.rotation.x += object.userData.rotation.x;
+                    object.rotation.y += object.userData.rotation.y;
+                    object.rotation.z += object.userData.rotation.z;
+                }
+
+                // When enough particles are close, swap to the final text mesh
+                const completionRatio = reached / count;
+                if (completionRatio > 0.92 || object.userData.lifetime > 240) {
+                    const spec = object.userData.finalTextSpec;
+                    const textMesh = this.create3DText(spec.text, {
+                        position: spec.position,
+                        size: spec.size,
+                        height: spec.height,
+                        color: spec.color
+                    });
+                    if (textMesh) {
+                        // Carry over flow properties
+                        textMesh.userData.useQueueFlow = true;
+                        textMesh.userData.targetZ = object.userData.targetZ ?? 0;
+                        textMesh.userData.targetScale = object.userData.targetScale ?? 1.0;
+                        textMesh.userData.velocity = object.userData.velocity;
+                        textMesh.userData.rotation = object.userData.rotation;
+                        textMesh.userData.lifetime = object.userData.lifetime;
+
+                        // Replace object in scene and list
+                        this.scene.add(textMesh);
+                        const idx = this.floatingObjects.indexOf(object);
+                        if (idx !== -1) this.floatingObjects[idx] = textMesh;
+                        this.scene.remove(object);
+                        if (object.geometry) object.geometry.dispose();
+                        if (object.material) object.material.dispose();
+                        object = textMesh; // for subsequent logic if any
+                    }
+                }
+            }
+
+            if (object.userData.useQueueFlow) {
+                // Smoothly move toward targetZ and targetScale
+                const targetZ = (object.userData.targetZ !== undefined) ? object.userData.targetZ : object.position.z;
+                object.position.z += (targetZ - object.position.z) * 0.12;
+
+                const targetScale = object.userData.targetScale || 1.0;
+                const newScale = object.scale.x + (targetScale - object.scale.x) * 0.12;
+                object.scale.set(newScale, newScale, newScale);
+
+                // Gentle drift
+                if (object.userData.velocity) {
+                    object.position.x += object.userData.velocity.x;
+                    object.position.y += object.userData.velocity.y;
+                }
+
+                // Clamp bounds relative to camera
+                const maxX = 50;
+                const maxY = 35;
+                object.position.x = Math.max(-maxX, Math.min(maxX, object.position.x));
+                object.position.y = Math.max(-maxY, Math.min(maxY, object.position.y));
+
+            } else if (object.userData.velocity) {
+                // Legacy floating behavior
             // Phase 1: Come forward from deep inside (until z > -20)
             if (object.position.z < -20) {
-                // Still emerging - keep moving forward
                 object.position.z += object.userData.velocity.z;
-                
-                // Add some gentle drift
                 object.position.x += object.userData.velocity.x * 0.3;
                 object.position.y += object.userData.velocity.y * 0.3;
-                
-                // Mark when it reaches visible area
                 if (object.position.z > -20) {
                     object.userData.hasReachedVisible = true;
                 }
             } else {
-                // Phase 2: Object is visible - float around smoothly
                 object.userData.hasReachedVisible = true;
-                
-                // Reduce forward movement significantly
                 object.position.z += object.userData.velocity.z * 0.2;
-                
-                // Add orbital motion for more natural floating
                 if (object.userData.orbitRadius) {
                     object.userData.orbitAngle += object.userData.orbitSpeed;
                     const orbitX = Math.cos(object.userData.orbitAngle) * object.userData.orbitRadius * 0.1;
                     const orbitY = Math.sin(object.userData.orbitAngle) * object.userData.orbitRadius * 0.1;
-                    
                     object.position.x += object.userData.velocity.x + orbitX;
                     object.position.y += object.userData.velocity.y + orbitY;
                 } else {
                     object.position.x += object.userData.velocity.x;
                     object.position.y += object.userData.velocity.y;
                 }
-                
-                // Strict boundary constraints - keep objects within visible screen bounds
-                // Based on camera FOV 90 and position z=30, visible area is roughly:
-                // X: -35 to +35 (at z=0)
-                // Y: -25 to +25 (at z=0)
-                // These bounds scale with z position
                 const safeZ = Math.max(-15, Math.min(object.position.z, 25));
-                const zFactor = Math.abs(safeZ) / 30; // Normalize based on camera distance
-                
-                // Calculate visible bounds based on current z position
-                const maxX = 35 + zFactor * 15;  // Wider when closer
-                const maxY = 25 + zFactor * 10;  // Taller when closer
-                
-                // Strict boundary enforcement - clamp position and reverse velocity
+                    const zFactor = Math.abs(safeZ) / 30;
+                    const maxX = 35 + zFactor * 15;
+                    const maxY = 25 + zFactor * 10;
                 if (object.position.x > maxX) {
                     object.position.x = maxX;
                     object.userData.velocity.x = Math.abs(object.userData.velocity.x) * -0.8;
@@ -450,7 +671,6 @@ class Scene3DManager {
                     object.position.x = -maxX;
                     object.userData.velocity.x = Math.abs(object.userData.velocity.x) * 0.8;
                 }
-                
                 if (object.position.y > maxY) {
                     object.position.y = maxY;
                     object.userData.velocity.y = Math.abs(object.userData.velocity.y) * -0.8;
@@ -458,45 +678,38 @@ class Scene3DManager {
                     object.position.y = -maxY;
                     object.userData.velocity.y = Math.abs(object.userData.velocity.y) * 0.8;
                 }
-                
-                // Keep object in visible z range (between -15 and 25)
                 if (object.position.z > 25) {
                     object.position.z = 25;
-                    object.userData.velocity.z *= -0.5; // Reverse and slow down
+                        object.userData.velocity.z *= -0.5;
                 } else if (object.position.z < -15) {
                     object.position.z = -15;
                     object.userData.velocity.z = Math.abs(object.userData.velocity.z);
                 }
-                
-                // Prevent velocity from accumulating too much
                 const maxVelocity = 0.12;
                 object.userData.velocity.x = Math.max(-maxVelocity, Math.min(maxVelocity, object.userData.velocity.x));
                 object.userData.velocity.y = Math.max(-maxVelocity, Math.min(maxVelocity, object.userData.velocity.y));
                 object.userData.velocity.z = Math.max(-maxVelocity * 0.5, Math.min(maxVelocity * 0.5, object.userData.velocity.z));
-                
-                // Add slight random drift changes for more organic movement
                 if (object.userData.lifetime % 300 === 0) {
                     object.userData.velocity.x += (Math.random() - 0.5) * 0.01;
                     object.userData.velocity.y += (Math.random() - 0.5) * 0.01;
-                    // Clamp velocity after drift change
                     object.userData.velocity.x = Math.max(-maxVelocity, Math.min(maxVelocity, object.userData.velocity.x));
                     object.userData.velocity.y = Math.max(-maxVelocity, Math.min(maxVelocity, object.userData.velocity.y));
+                    }
                 }
             }
             
             // Auto-rotate (unless being dragged)
-            if (object !== this.selectedObject && object.userData.rotation) {
+            if (object !== this.selectedObject && object.userData && object.userData.rotation) {
                 object.rotation.x += object.userData.rotation.x;
                 object.rotation.y += object.userData.rotation.y;
                 object.rotation.z += object.userData.rotation.z;
             }
             
-            // Messages stay forever - only remove if they somehow escape bounds (safety check)
-            // This should rarely happen now with strict boundary clamping
-            if (Math.abs(object.position.x) > 100 || 
-                Math.abs(object.position.y) > 100 || 
-                object.position.z < -250 || 
-                object.position.z > 100) {
+            // Remove if escapes bounds
+            if (Math.abs(object.position.x) > 150 || 
+                Math.abs(object.position.y) > 120 || 
+                object.position.z < -260 || 
+                object.position.z > 120) {
                 console.warn('⚠️ Object escaped bounds, removing:', object.position);
                 this.scene.remove(object);
                 if (object.geometry) object.geometry.dispose();
