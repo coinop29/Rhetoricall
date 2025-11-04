@@ -6,6 +6,8 @@ class App {
         this.isLoading = false;
         this.scene3D = null;
         this.currentTextColor = '#2F24C1';
+        this.randomizeColors = false;
+        this.uiVisible = true;
         
         this.init();
     }
@@ -88,6 +90,16 @@ class App {
             });
         }
 
+        // Randomize colors checkbox
+        const randomizeColorsCheckbox = document.getElementById('randomize-colors');
+        if (randomizeColorsCheckbox) {
+            randomizeColorsCheckbox.addEventListener('change', (e) => {
+                this.randomizeColors = e.target.checked;
+                const status = this.randomizeColors ? 'enabled' : 'disabled';
+                this.showNotification(`Color randomization ${status}`, 'success');
+            });
+        }
+
         // Close notification
         const closeNotificationBtn = document.getElementById('close-notification');
         if (closeNotificationBtn) {
@@ -143,6 +155,47 @@ class App {
         
         // Setup banner controls
         this.setupBannerControls();
+        
+        // Keyboard shortcuts
+        this.setupKeyboardShortcuts();
+    }
+
+    setupKeyboardShortcuts() {
+        document.addEventListener('keydown', (e) => {
+            // Press 'H' to hide/show UI controls
+            if (e.key === 'h' || e.key === 'H') {
+                // Don't trigger if user is typing in an input/textarea
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                    return;
+                }
+                this.toggleUIVisibility();
+            }
+        });
+    }
+
+    toggleUIVisibility() {
+        this.uiVisible = !this.uiVisible;
+        const controls = document.getElementById('controls');
+        const modeChip = document.getElementById('display-mode-chip');
+        
+        if (controls) {
+            if (this.uiVisible) {
+                controls.style.display = 'flex';
+            } else {
+                controls.style.display = 'none';
+            }
+        }
+        
+        if (modeChip) {
+            if (this.uiVisible) {
+                modeChip.style.display = 'block';
+            } else {
+                modeChip.style.display = 'none';
+            }
+        }
+        
+        const status = this.uiVisible ? 'visible' : 'hidden';
+        this.showNotification(`UI controls ${status} (Press 'H' to toggle)`, 'info');
     }
 
     async openSendTestPrompt() {
@@ -678,15 +731,55 @@ class App {
         this.isLoading = show;
     }
 
+    generateRandomColor() {
+        // Generate vibrant random colors
+        const hue = Math.floor(Math.random() * 360);
+        const saturation = 70 + Math.floor(Math.random() * 30); // 70-100%
+        const lightness = 50 + Math.floor(Math.random() * 20); // 50-70%
+        
+        // Convert HSL to hex
+        const h = hue / 360;
+        const s = saturation / 100;
+        const l = lightness / 100;
+        
+        let r, g, b;
+        if (s === 0) {
+            r = g = b = l;
+        } else {
+            const hue2rgb = (p, q, t) => {
+                if (t < 0) t += 1;
+                if (t > 1) t -= 1;
+                if (t < 1/6) return p + (q - p) * 6 * t;
+                if (t < 1/2) return q;
+                if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+                return p;
+            };
+            const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+            const p = 2 * l - q;
+            r = hue2rgb(p, q, h + 1/3);
+            g = hue2rgb(p, q, h);
+            b = hue2rgb(p, q, h - 1/3);
+        }
+        
+        const toHex = x => {
+            const hex = Math.round(x * 255).toString(16);
+            return hex.length === 1 ? '0' + hex : hex;
+        };
+        
+        return '#' + toHex(r) + toHex(g) + toHex(b);
+    }
+
     addFloatingMessage(messageData) {
         console.log('📨 Adding floating message:', messageData);
         
         // Use 3D scene if available, otherwise fallback to 2D
         if (this.scene3D && this.scene3D.font) {
             console.log('📨 Using 3D scene rendering');
-            const payload = { ...messageData, textColor: this.currentTextColor };
+            // Use random color if enabled, otherwise use current color
+            const textColor = this.randomizeColors ? this.generateRandomColor() : this.currentTextColor;
+            const payload = { ...messageData, textColor: textColor };
             this.scene3D.addFloatingMessage(payload);
-            console.log(`✅ Added 3D floating message`);
+            console.log(`✅ Added 3D floating message with color ${textColor}`);
         } else {
             console.log('📨 Using fallback 2D rendering');
             this.addFloatingMessage2D(messageData);
@@ -808,7 +901,10 @@ class App {
             if (response.ok) {
                 const data = await response.json();
                 if (data.enabled && data.message && data.message.trim() !== '') {
-                    this.showBanner(data.message);
+                    const fontSize = data.fontSize || 24;
+                    const phoneNumber = data.phoneNumber || '';
+                    const phoneFontSize = data.phoneFontSize || 32;
+                    this.showBanner(data.message, fontSize, phoneNumber, phoneFontSize);
                 } else {
                     // Hide banner if disabled or no message
                     this.hideBanner();
@@ -817,20 +913,33 @@ class App {
         } catch (error) {
             console.warn('⚠️ Could not load banner message:', error);
             // Show default banner if API fails
-            this.showBanner('Welcome to Rhetorical SMS Visualization!');
+            this.showBanner('Welcome to Rhetorical SMS Visualization!', 24, '', 32);
         }
     }
 
-    showBanner(message) {
+    showBanner(message, fontSize = 24, phoneNumber = '', phoneFontSize = 32) {
         const banner = document.getElementById('message-banner');
         const bannerText = document.getElementById('banner-text');
+        const bannerPhone = document.getElementById('banner-phone');
         
         if (banner && bannerText) {
             bannerText.textContent = message;
+            bannerText.style.fontSize = `${fontSize}px`;
+            
+            if (bannerPhone) {
+                if (phoneNumber && phoneNumber.trim() !== '') {
+                    bannerPhone.textContent = phoneNumber;
+                    bannerPhone.style.fontSize = `${phoneFontSize}px`;
+                    bannerPhone.style.display = 'block';
+                } else {
+                    bannerPhone.style.display = 'none';
+                }
+            }
+            
             banner.classList.add('show');
             document.body.classList.add('banner-visible');
             
-            console.log('✅ Banner shown:', message);
+            console.log('✅ Banner shown:', message, 'Font size:', fontSize, 'Phone:', phoneNumber);
         }
     }
 
@@ -865,15 +974,27 @@ class App {
             if (response.ok) {
                 const data = await response.json();
                 const messageInput = document.getElementById('banner-message-input');
+                const phoneNumberInput = document.getElementById('banner-phone-number');
                 const enabledCheckbox = document.getElementById('banner-enabled-checkbox');
+                const fontSizeSelect = document.getElementById('banner-font-size');
+                const phoneFontSizeSelect = document.getElementById('banner-phone-font-size');
                 const statusText = document.getElementById('banner-status-text');
                 const statusDiv = document.querySelector('.banner-status');
 
                 if (messageInput) {
                     messageInput.value = data.message || '';
                 }
+                if (phoneNumberInput) {
+                    phoneNumberInput.value = data.phoneNumber || '';
+                }
                 if (enabledCheckbox) {
                     enabledCheckbox.checked = data.enabled !== false;
+                }
+                if (fontSizeSelect) {
+                    fontSizeSelect.value = data.fontSize || 24;
+                }
+                if (phoneFontSizeSelect) {
+                    phoneFontSizeSelect.value = data.phoneFontSize || 32;
                 }
                 if (statusText && statusDiv) {
                     if (data.enabled !== false && data.message && data.message.trim() !== '') {
@@ -892,12 +1013,18 @@ class App {
 
     async saveBannerSettings() {
         const messageInput = document.getElementById('banner-message-input');
+        const phoneNumberInput = document.getElementById('banner-phone-number');
         const enabledCheckbox = document.getElementById('banner-enabled-checkbox');
+        const fontSizeSelect = document.getElementById('banner-font-size');
+        const phoneFontSizeSelect = document.getElementById('banner-phone-font-size');
         
-        if (!messageInput || !enabledCheckbox) return;
+        if (!messageInput || !enabledCheckbox || !fontSizeSelect || !phoneFontSizeSelect) return;
 
         const message = messageInput.value.trim();
+        const phoneNumber = phoneNumberInput ? phoneNumberInput.value.trim() : '';
         const enabled = enabledCheckbox.checked;
+        const fontSize = parseInt(fontSizeSelect.value);
+        const phoneFontSize = parseInt(phoneFontSizeSelect.value);
 
         try {
             const response = await fetch('/api/banner-message', {
@@ -907,7 +1034,10 @@ class App {
                 },
                 body: JSON.stringify({
                     message: message,
-                    enabled: enabled
+                    phoneNumber: phoneNumber,
+                    enabled: enabled,
+                    fontSize: fontSize,
+                    phoneFontSize: phoneFontSize
                 })
             });
 
@@ -917,7 +1047,7 @@ class App {
                 
                 // If enabled and has message, show the banner
                 if (enabled && message) {
-                    this.showBanner(message);
+                    this.showBanner(message, fontSize, phoneNumber, phoneFontSize);
                 } else {
                     this.hideBanner();
                 }
@@ -932,8 +1062,14 @@ class App {
 
     previewBanner() {
         const messageInput = document.getElementById('banner-message-input');
-        if (messageInput && messageInput.value.trim()) {
-            this.showBanner(messageInput.value.trim());
+        const phoneNumberInput = document.getElementById('banner-phone-number');
+        const fontSizeSelect = document.getElementById('banner-font-size');
+        const phoneFontSizeSelect = document.getElementById('banner-phone-font-size');
+        if (messageInput && messageInput.value.trim() && fontSizeSelect && phoneFontSizeSelect) {
+            const fontSize = parseInt(fontSizeSelect.value);
+            const phoneNumber = phoneNumberInput ? phoneNumberInput.value.trim() : '';
+            const phoneFontSize = parseInt(phoneFontSizeSelect.value);
+            this.showBanner(messageInput.value.trim(), fontSize, phoneNumber, phoneFontSize);
         } else {
             this.showNotification('Please enter a message to preview', 'warning');
         }

@@ -136,8 +136,16 @@ class Scene3DManager {
             position = { x: 0, y: 0, z: 0 }
         } = options;
 
+        // Format text with line breaks after every 4 words
+        const words = text.trim().split(/\s+/);
+        const lines = [];
+        for (let i = 0; i < words.length; i += 4) {
+            lines.push(words.slice(i, i + 4).join(' '));
+        }
+        const formattedText = lines.join('\n');
+
         // Create text geometry with extrusion
-        const textGeometry = new THREE.TextGeometry(text, {
+        const textGeometry = new THREE.TextGeometry(formattedText, {
             font: this.font,
             size: size,
             height: height,
@@ -152,7 +160,8 @@ class Scene3DManager {
         // Center the geometry
         textGeometry.computeBoundingBox();
         const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
-        textGeometry.translate(centerOffset, 0, 0);
+        const centerOffsetY = -0.5 * (textGeometry.boundingBox.max.y - textGeometry.boundingBox.min.y);
+        textGeometry.translate(centerOffset, centerOffsetY, 0);
 
         // Create material with metallic/shiny effect
         const textMaterial = new THREE.MeshStandardMaterial({
@@ -170,6 +179,7 @@ class Scene3DManager {
         // Add custom properties for animation (will be overridden in addFloatingMessage)
         textMesh.userData.isText = true;
         textMesh.userData.originalText = text;
+        textMesh.userData.keepUpright = true; // New flag to keep text upright
 
         return textMesh;
     }
@@ -234,15 +244,20 @@ class Scene3DManager {
             targetPositions[i * 3 + 2] = srcPositions[idx + 2] + position.z;
         }
 
-        // Initial positions: random sphere around center
+        // Initial positions: random sphere with more variation
         const startPositions = new Float32Array(count * 3);
+        const radiusVariation = 30 + Math.random() * 30; // Random sphere size 30-60
+        const offsetX = (Math.random() - 0.5) * 40; // Random offset in X
+        const offsetY = (Math.random() - 0.5) * 40; // Random offset in Y
+        const offsetZ = (Math.random() - 0.5) * 60; // Random offset in Z
+        
         for (let i = 0; i < count; i++) {
-            const r = 40 * Math.cbrt(Math.random());
+            const r = radiusVariation * Math.cbrt(Math.random());
             const theta = Math.random() * Math.PI * 2;
             const phi = Math.acos(2 * Math.random() - 1);
-            const x = r * Math.sin(phi) * Math.cos(theta) + position.x;
-            const y = r * Math.sin(phi) * Math.sin(theta) + position.y;
-            const z = r * Math.cos(phi) + position.z - 30; // slightly in front
+            const x = r * Math.sin(phi) * Math.cos(theta) + position.x + offsetX;
+            const y = r * Math.sin(phi) * Math.sin(theta) + position.y + offsetY;
+            const z = r * Math.cos(phi) + position.z - 30 + offsetZ;
             startPositions[i * 3 + 0] = x;
             startPositions[i * 3 + 1] = y;
             startPositions[i * 3 + 2] = z;
@@ -263,13 +278,80 @@ class Scene3DManager {
         points.userData.isParticles = true;
         points.userData.particleTargetPositions = targetPositions;
         points.userData.morphProgress = 0;
-        points.userData.morphSpeed = 0.06; // higher is faster morph
+        points.userData.morphSpeed = 0.15; // higher is faster morph - increased from 0.06
         points.userData.finalTextSpec = { text, size, height, color, position };
         points.userData.rotation = {
             x: (Math.random() - 0.5) * 0.003,
             y: (Math.random() - 0.5) * 0.003,
             z: (Math.random() - 0.5) * 0.003
         };
+
+        return points;
+    }
+
+    createImageParticles(imageUrl, options = {}) {
+        const {
+            width = 10,
+            height = 10,
+            position = { x: 0, y: 0, z: 0 },
+            particleCount = 2000
+        } = options;
+
+        // Create particles that will form a plane
+        const count = particleCount;
+        const gridSize = Math.ceil(Math.sqrt(count));
+        
+        // Target positions: grid arranged in a plane
+        const targetPositions = new Float32Array(count * 3);
+        let idx = 0;
+        for (let i = 0; i < gridSize && idx < count; i++) {
+            for (let j = 0; j < gridSize && idx < count; j++) {
+                const x = (i / gridSize - 0.5) * width + position.x;
+                const y = (j / gridSize - 0.5) * height + position.y;
+                targetPositions[idx * 3 + 0] = x;
+                targetPositions[idx * 3 + 1] = y;
+                targetPositions[idx * 3 + 2] = position.z;
+                idx++;
+            }
+        }
+
+        // Initial positions: random sphere with more variation
+        const startPositions = new Float32Array(count * 3);
+        const radiusVariation = 30 + Math.random() * 30; // Random sphere size 30-60
+        const offsetX = (Math.random() - 0.5) * 40; // Random offset in X
+        const offsetY = (Math.random() - 0.5) * 40; // Random offset in Y
+        const offsetZ = (Math.random() - 0.5) * 60; // Random offset in Z
+        
+        for (let i = 0; i < count; i++) {
+            const r = radiusVariation * Math.cbrt(Math.random());
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(2 * Math.random() - 1);
+            const x = r * Math.sin(phi) * Math.cos(theta) + position.x + offsetX;
+            const y = r * Math.sin(phi) * Math.sin(theta) + position.y + offsetY;
+            const z = r * Math.cos(phi) + position.z - 30 + offsetZ;
+            startPositions[i * 3 + 0] = x;
+            startPositions[i * 3 + 1] = y;
+            startPositions[i * 3 + 2] = z;
+        }
+
+        const geom = new THREE.BufferGeometry();
+        geom.setAttribute('position', new THREE.BufferAttribute(startPositions, 3));
+
+        const mat = new THREE.PointsMaterial({
+            color: 0xffffff,
+            size: 0.6,
+            sizeAttenuation: true,
+            transparent: true,
+            opacity: 0.95
+        });
+
+        const points = new THREE.Points(geom, mat);
+        points.userData.isImageParticles = true;
+        points.userData.particleTargetPositions = targetPositions;
+        points.userData.morphProgress = 0;
+        points.userData.morphSpeed = 0.15; // increased from 0.06 for faster morph
+        points.userData.finalImageSpec = { imageUrl, width, height, position };
+        points.userData.keepUpright = true;
 
         return points;
     }
@@ -330,6 +412,7 @@ class Scene3DManager {
         // Add custom properties for animation (will be overridden in addFloatingMessage)
         imageMesh.userData.isImage = true;
         imageMesh.userData.imageUrl = imageUrl;
+        imageMesh.userData.keepUpright = true;
 
         return imageMesh;
     }
@@ -347,19 +430,21 @@ class Scene3DManager {
             fullData: messageData
         });
         
-        // New behavior: latest message appears big and centered; older ones float backward
-        const startX = 0;
-        const startY = 0;
-        const startZ = 0; // Center front
+        // Messages start far back and move toward camera, then spread across screen
+        const startX = (Math.random() - 0.5) * 60; // Random X position across wide area
+        const startY = (Math.random() - 0.5) * 40; // Random Y position
+        const startZ = -80; // Start far back, will move forward toward camera
 
         let object;
 
         if (isImage) {
-            console.log('📨 Creating 3D image with URL:', imageUrl);
-            object = this.create3DImage(imageUrl, {
+            console.log('📨 Creating 3D image particles with URL:', imageUrl);
+            // Create particle system that will morph into the image
+            object = this.createImageParticles(imageUrl, {
                 position: { x: startX, y: startY, z: startZ },
                 width: 10,
-                height: 10
+                height: 10,
+                particleCount: 2000
             });
         } else {
             // Truncate text to 5 words
@@ -381,38 +466,28 @@ class Scene3DManager {
         }
 
         if (object) {
-            // Queue-flow behavior: newest stays centered, older ones push backward
-            object.userData.useQueueFlow = true;
+            // Active floating behavior: move forward toward camera, then float around
+            object.userData.useQueueFlow = false; // Use legacy floating behavior for more movement
             object.userData.velocity = {
-                x: (Math.random() - 0.5) * 0.08,
-                y: (Math.random() - 0.5) * 0.08,
-                z: 0
+                x: (Math.random() - 0.5) * 0.3, // Increased from 0.08 for more movement
+                y: (Math.random() - 0.5) * 0.3, // Increased from 0.08 for more movement
+                z: 0.5 + Math.random() * 0.3 // Move forward toward camera (positive Z)
             };
             object.userData.rotation = {
-                x: (Math.random() - 0.5) * 0.006,
-                y: (Math.random() - 0.5) * 0.006,
-                z: (Math.random() - 0.5) * 0.006
+                x: 0,
+                y: 0,
+                z: 0
             };
             object.userData.targetZ = 0;
             object.userData.targetScale = 1.0;
             object.userData.lifetime = 0;
+            object.userData.hasReachedVisible = false; // Track when it reaches visible area
             
             this.scene.add(object);
             this.floatingObjects.push(object);
-            console.log(`✅ Added 3D ${isImage ? 'image' : 'text'} to scene at z=${startZ}`);
-
-            // Push existing objects backward and slightly shrink them
-            const pushBackStep = 20; // how far to move back per new message
-            const minZ = -220;
-            this.floatingObjects.forEach((obj) => {
-                if (obj === object) return;
-                if (!obj.userData) obj.userData = {};
-                obj.userData.useQueueFlow = true;
-                const currentTargetZ = (obj.userData.targetZ !== undefined) ? obj.userData.targetZ : obj.position.z;
-                obj.userData.targetZ = Math.max(minZ, currentTargetZ - pushBackStep);
-                const currentScale = obj.scale.x;
-                obj.userData.targetScale = Math.max(0.4, currentScale * 0.9);
-            });
+            console.log(`✅ Added 3D ${isImage ? 'image' : 'text'} particles to scene at z=${startZ}`);
+            
+            // Messages now move independently across the screen - no queue pushing
         }
     }
 
@@ -552,15 +627,15 @@ class Scene3DManager {
             // Increment lifetime
             object.userData.lifetime = (object.userData.lifetime || 0) + 1;
 
-            // Particle morphing phase: move points toward target positions
-            if (object.userData.isParticles) {
+            // Image particle morphing phase: move points toward target positions
+            if (object.userData.isImageParticles) {
                 const geom = object.geometry;
                 const posAttr = geom.getAttribute('position');
                 const positions = posAttr.array;
                 const targets = object.userData.particleTargetPositions;
                 const count = positions.length / 3;
                 let reached = 0;
-                const speed = object.userData.morphSpeed || 0.1;
+                const speed = object.userData.morphSpeed || 0.15; // Increased default from 0.1
                 for (let i = 0; i < count; i++) {
                     const i3 = i * 3;
                     // Lerp toward target
@@ -578,12 +653,83 @@ class Scene3DManager {
                 }
                 posAttr.needsUpdate = true;
 
-                // Gentle rotation for visual interest
-                if (object.userData.rotation) {
-                    object.rotation.x += object.userData.rotation.x;
-                    object.rotation.y += object.userData.rotation.y;
-                    object.rotation.z += object.userData.rotation.z;
+                // When enough particles are close, swap to the final image mesh
+                const completionRatio = reached / count;
+                if (completionRatio > 0.92 || object.userData.lifetime > 240) {
+                    const spec = object.userData.finalImageSpec;
+                    const imageMesh = this.create3DImage(spec.imageUrl, {
+                        position: spec.position,
+                        width: spec.width,
+                        height: spec.height
+                    });
+                    if (imageMesh) {
+                        // Carry over flow properties - use floating behavior, not queue flow
+                        imageMesh.userData.useQueueFlow = false;
+                        imageMesh.userData.targetZ = object.userData.targetZ ?? 0;
+                        imageMesh.userData.targetScale = object.userData.targetScale ?? 1.0;
+                        // Ensure velocity is maintained for active movement
+                        if (!object.userData.velocity) {
+                            imageMesh.userData.velocity = {
+                                x: (Math.random() - 0.5) * 0.3,
+                                y: (Math.random() - 0.5) * 0.3,
+                                z: 0.2 + Math.random() * 0.2
+                            };
+                        } else {
+                            imageMesh.userData.velocity = object.userData.velocity;
+                        }
+                        imageMesh.userData.rotation = {
+                            x: 0,
+                            y: 0,
+                            z: 0
+                        };
+                        imageMesh.userData.lifetime = object.userData.lifetime;
+                        imageMesh.userData.keepUpright = true;
+                        imageMesh.userData.hasReachedVisible = object.userData.hasReachedVisible || false;
+
+                        // Replace object in scene and list
+                        this.scene.add(imageMesh);
+                        const idx = this.floatingObjects.indexOf(object);
+                        if (idx !== -1) this.floatingObjects[idx] = imageMesh;
+                        this.scene.remove(object);
+                        if (object.geometry) object.geometry.dispose();
+                        if (object.material) object.material.dispose();
+                        object = imageMesh; // for subsequent logic if any
+                    }
                 }
+            }
+
+            // Particle morphing phase: move points toward target positions
+            if (object.userData.isParticles) {
+                const geom = object.geometry;
+                const posAttr = geom.getAttribute('position');
+                const positions = posAttr.array;
+                const targets = object.userData.particleTargetPositions;
+                const count = positions.length / 3;
+                let reached = 0;
+                const speed = object.userData.morphSpeed || 0.15; // Increased default from 0.1
+                for (let i = 0; i < count; i++) {
+                    const i3 = i * 3;
+                    // Lerp toward target
+                    const tx = targets[i3 + 0];
+                    const ty = targets[i3 + 1];
+                    const tz = targets[i3 + 2];
+                    positions[i3 + 0] += (tx - positions[i3 + 0]) * speed;
+                    positions[i3 + 1] += (ty - positions[i3 + 1]) * speed;
+                    positions[i3 + 2] += (tz - positions[i3 + 2]) * speed;
+                    // Check closeness
+                    const dx = tx - positions[i3 + 0];
+                    const dy = ty - positions[i3 + 1];
+                    const dz = tz - positions[i3 + 2];
+                    if ((dx*dx + dy*dy + dz*dz) < 0.04) reached++;
+                }
+                posAttr.needsUpdate = true;
+
+                // Gentle rotation for visual interest (disabled to keep text upright)
+                // if (object.userData.rotation) {
+                //     object.rotation.x += object.userData.rotation.x;
+                //     object.rotation.y += object.userData.rotation.y;
+                //     object.rotation.z += object.userData.rotation.z;
+                // }
 
                 // When enough particles are close, swap to the final text mesh
                 const completionRatio = reached / count;
@@ -596,13 +742,29 @@ class Scene3DManager {
                         color: spec.color
                     });
                     if (textMesh) {
-                        // Carry over flow properties
-                        textMesh.userData.useQueueFlow = true;
+                        // Carry over flow properties - use floating behavior, not queue flow
+                        textMesh.userData.useQueueFlow = false;
                         textMesh.userData.targetZ = object.userData.targetZ ?? 0;
                         textMesh.userData.targetScale = object.userData.targetScale ?? 1.0;
-                        textMesh.userData.velocity = object.userData.velocity;
-                        textMesh.userData.rotation = object.userData.rotation;
+                        // Ensure velocity is maintained for active movement
+                        if (!object.userData.velocity) {
+                            textMesh.userData.velocity = {
+                                x: (Math.random() - 0.5) * 0.3,
+                                y: (Math.random() - 0.5) * 0.3,
+                                z: 0.2 + Math.random() * 0.2
+                            };
+                        } else {
+                            textMesh.userData.velocity = object.userData.velocity;
+                        }
+                        // Set minimal rotation for upright text
+                        textMesh.userData.rotation = {
+                            x: 0,
+                            y: 0,
+                            z: 0
+                        };
                         textMesh.userData.lifetime = object.userData.lifetime;
+                        textMesh.userData.keepUpright = true;
+                        textMesh.userData.hasReachedVisible = object.userData.hasReachedVisible || false;
 
                         // Replace object in scene and list
                         this.scene.add(textMesh);
@@ -638,68 +800,82 @@ class Scene3DManager {
                 object.position.y = Math.max(-maxY, Math.min(maxY, object.position.y));
 
             } else if (object.userData.velocity) {
-                // Legacy floating behavior
-            // Phase 1: Come forward from deep inside (until z > -20)
-            if (object.position.z < -20) {
+                // Legacy floating behavior - improved for more dynamic movement
+            // Phase 1: Come forward from deep inside (until z > -10)
+            if (object.position.z < -10) {
                 object.position.z += object.userData.velocity.z;
-                object.position.x += object.userData.velocity.x * 0.3;
-                object.position.y += object.userData.velocity.y * 0.3;
-                if (object.position.z > -20) {
+                object.position.x += object.userData.velocity.x;
+                object.position.y += object.userData.velocity.y;
+                if (object.position.z > -10) {
                     object.userData.hasReachedVisible = true;
+                    // Once visible, add more random movement
+                    object.userData.velocity.x += (Math.random() - 0.5) * 0.1;
+                    object.userData.velocity.y += (Math.random() - 0.5) * 0.1;
                 }
             } else {
                 object.userData.hasReachedVisible = true;
-                object.position.z += object.userData.velocity.z * 0.2;
-                if (object.userData.orbitRadius) {
-                    object.userData.orbitAngle += object.userData.orbitSpeed;
-                    const orbitX = Math.cos(object.userData.orbitAngle) * object.userData.orbitRadius * 0.1;
-                    const orbitY = Math.sin(object.userData.orbitAngle) * object.userData.orbitRadius * 0.1;
-                    object.position.x += object.userData.velocity.x + orbitX;
-                    object.position.y += object.userData.velocity.y + orbitY;
-                } else {
-                    object.position.x += object.userData.velocity.x;
-                    object.position.y += object.userData.velocity.y;
+                // Continue moving forward but slower, more horizontal/vertical movement
+                object.position.z += object.userData.velocity.z * 0.3;
+                
+                // Add some orbital movement for variety
+                if (!object.userData.orbitRadius) {
+                    object.userData.orbitRadius = 5 + Math.random() * 10;
+                    object.userData.orbitAngle = Math.random() * Math.PI * 2;
+                    object.userData.orbitSpeed = 0.01 + Math.random() * 0.02;
                 }
-                const safeZ = Math.max(-15, Math.min(object.position.z, 25));
-                    const zFactor = Math.abs(safeZ) / 30;
-                    const maxX = 35 + zFactor * 15;
-                    const maxY = 25 + zFactor * 10;
+                
+                object.userData.orbitAngle += object.userData.orbitSpeed;
+                const orbitX = Math.cos(object.userData.orbitAngle) * object.userData.orbitRadius * 0.15;
+                const orbitY = Math.sin(object.userData.orbitAngle) * object.userData.orbitRadius * 0.15;
+                
+                object.position.x += object.userData.velocity.x + orbitX;
+                object.position.y += object.userData.velocity.y + orbitY;
+                
+                // Expanded bounds for more screen coverage
+                const safeZ = Math.max(-10, Math.min(object.position.z, 30));
+                const zFactor = Math.abs(safeZ) / 40;
+                const maxX = 80 + zFactor * 20; // Increased from 35
+                const maxY = 50 + zFactor * 15; // Increased from 25
+                
                 if (object.position.x > maxX) {
                     object.position.x = maxX;
-                    object.userData.velocity.x = Math.abs(object.userData.velocity.x) * -0.8;
+                    object.userData.velocity.x = -Math.abs(object.userData.velocity.x) * 0.9;
                 } else if (object.position.x < -maxX) {
                     object.position.x = -maxX;
-                    object.userData.velocity.x = Math.abs(object.userData.velocity.x) * 0.8;
+                    object.userData.velocity.x = Math.abs(object.userData.velocity.x) * 0.9;
                 }
                 if (object.position.y > maxY) {
                     object.position.y = maxY;
-                    object.userData.velocity.y = Math.abs(object.userData.velocity.y) * -0.8;
+                    object.userData.velocity.y = -Math.abs(object.userData.velocity.y) * 0.9;
                 } else if (object.position.y < -maxY) {
                     object.position.y = -maxY;
-                    object.userData.velocity.y = Math.abs(object.userData.velocity.y) * 0.8;
+                    object.userData.velocity.y = Math.abs(object.userData.velocity.y) * 0.9;
                 }
-                if (object.position.z > 25) {
-                    object.position.z = 25;
-                        object.userData.velocity.z *= -0.5;
-                } else if (object.position.z < -15) {
-                    object.position.z = -15;
+                if (object.position.z > 30) {
+                    object.position.z = 30;
+                    object.userData.velocity.z *= -0.6;
+                } else if (object.position.z < -10) {
+                    object.position.z = -10;
                     object.userData.velocity.z = Math.abs(object.userData.velocity.z);
                 }
-                const maxVelocity = 0.12;
+                
+                // Increased max velocity for more dynamic movement
+                const maxVelocity = 0.4; // Increased from 0.12
                 object.userData.velocity.x = Math.max(-maxVelocity, Math.min(maxVelocity, object.userData.velocity.x));
                 object.userData.velocity.y = Math.max(-maxVelocity, Math.min(maxVelocity, object.userData.velocity.y));
-                object.userData.velocity.z = Math.max(-maxVelocity * 0.5, Math.min(maxVelocity * 0.5, object.userData.velocity.z));
-                if (object.userData.lifetime % 300 === 0) {
-                    object.userData.velocity.x += (Math.random() - 0.5) * 0.01;
-                    object.userData.velocity.y += (Math.random() - 0.5) * 0.01;
+                object.userData.velocity.z = Math.max(-maxVelocity * 0.3, Math.min(maxVelocity * 0.3, object.userData.velocity.z));
+                
+                // More frequent velocity changes for more erratic movement
+                if (object.userData.lifetime % 120 === 0) {
+                    object.userData.velocity.x += (Math.random() - 0.5) * 0.15;
+                    object.userData.velocity.y += (Math.random() - 0.5) * 0.15;
                     object.userData.velocity.x = Math.max(-maxVelocity, Math.min(maxVelocity, object.userData.velocity.x));
                     object.userData.velocity.y = Math.max(-maxVelocity, Math.min(maxVelocity, object.userData.velocity.y));
-                    }
                 }
             }
             
-            // Auto-rotate (unless being dragged)
-            if (object !== this.selectedObject && object.userData && object.userData.rotation) {
+            // Auto-rotate (unless being dragged or should stay upright)
+            if (object !== this.selectedObject && object.userData && object.userData.rotation && !object.userData.keepUpright) {
                 object.rotation.x += object.userData.rotation.x;
                 object.rotation.y += object.userData.rotation.y;
                 object.rotation.z += object.userData.rotation.z;
