@@ -8,6 +8,8 @@ class App {
         this.currentTextColor = '#2F24C1';
         this.randomizeColors = false;
         this.uiVisible = true;
+        this.defaultBannerPhone = '+1 (516) 874-0789';
+        this.defaultBannerFontFamily = 'Inter';
         
         this.init();
     }
@@ -902,9 +904,16 @@ class App {
                 const data = await response.json();
                 if (data.enabled && data.message && data.message.trim() !== '') {
                     const fontSize = data.fontSize || 24;
-                    const phoneNumber = data.phoneNumber || '';
+                    const phoneNumber = data.phoneNumber && data.phoneNumber.trim() !== '' ? data.phoneNumber : this.defaultBannerPhone;
                     const phoneFontSize = data.phoneFontSize || 32;
-                    this.showBanner(data.message, fontSize, phoneNumber, phoneFontSize);
+                    const textColor = data.textColor || '#ffffff';
+                    const phoneColor = data.phoneColor || '#ffffff';
+                    const fontFamily = data.fontFamily || this.defaultBannerFontFamily;
+                    this.showBanner(data.message, fontSize, phoneNumber, phoneFontSize, {
+                        textColor,
+                        phoneColor,
+                        fontFamily
+                    });
                 } else {
                     // Hide banner if disabled or no message
                     this.hideBanner();
@@ -913,23 +922,41 @@ class App {
         } catch (error) {
             console.warn('⚠️ Could not load banner message:', error);
             // Show default banner if API fails
-            this.showBanner('Welcome to Rhetorical SMS Visualization!', 24, '', 32);
+            this.showBanner(
+                'Welcome to Rhetorical SMS Visualization!',
+                24,
+                this.defaultBannerPhone,
+                32,
+                {
+                    textColor: '#ffffff',
+                    phoneColor: '#ffffff',
+                    fontFamily: this.defaultBannerFontFamily
+                }
+            );
         }
     }
 
-    showBanner(message, fontSize = 24, phoneNumber = '', phoneFontSize = 32) {
+    showBanner(message, fontSize = 24, phoneNumber = '', phoneFontSize = 32, options = {}) {
         const banner = document.getElementById('message-banner');
         const bannerText = document.getElementById('banner-text');
         const bannerPhone = document.getElementById('banner-phone');
-        
+        const {
+            textColor = '#ffffff',
+            phoneColor = '#ffffff',
+            fontFamily = this.defaultBannerFontFamily
+        } = options;
+
         if (banner && bannerText) {
             bannerText.textContent = message;
             bannerText.style.fontSize = `${fontSize}px`;
+            bannerText.style.color = textColor;
+            bannerText.style.fontFamily = this.getFontStack(fontFamily);
             
             if (bannerPhone) {
                 if (phoneNumber && phoneNumber.trim() !== '') {
                     bannerPhone.textContent = phoneNumber;
                     bannerPhone.style.fontSize = `${phoneFontSize}px`;
+                    bannerPhone.style.color = phoneColor;
                     bannerPhone.style.display = 'block';
                 } else {
                     bannerPhone.style.display = 'none';
@@ -978,6 +1005,9 @@ class App {
                 const enabledCheckbox = document.getElementById('banner-enabled-checkbox');
                 const fontSizeSelect = document.getElementById('banner-font-size');
                 const phoneFontSizeSelect = document.getElementById('banner-phone-font-size');
+                const textColorInput = document.getElementById('banner-text-color');
+                const phoneColorInput = document.getElementById('banner-phone-color');
+                const fontFamilySelect = document.getElementById('banner-font-family');
                 const statusText = document.getElementById('banner-status-text');
                 const statusDiv = document.querySelector('.banner-status');
 
@@ -985,7 +1015,7 @@ class App {
                     messageInput.value = data.message || '';
                 }
                 if (phoneNumberInput) {
-                    phoneNumberInput.value = data.phoneNumber || '';
+                    phoneNumberInput.value = data.phoneNumber || this.defaultBannerPhone;
                 }
                 if (enabledCheckbox) {
                     enabledCheckbox.checked = data.enabled !== false;
@@ -995,6 +1025,16 @@ class App {
                 }
                 if (phoneFontSizeSelect) {
                     phoneFontSizeSelect.value = data.phoneFontSize || 32;
+                }
+                if (textColorInput) {
+                    textColorInput.value = (data.textColor || '#ffffff').toLowerCase();
+                }
+                if (phoneColorInput) {
+                    phoneColorInput.value = (data.phoneColor || '#ffffff').toLowerCase();
+                }
+                if (fontFamilySelect) {
+                    fontFamilySelect.value = data.fontFamily || this.defaultBannerFontFamily;
+                    fontFamilySelect.style.fontFamily = this.getFontStack(fontFamilySelect.value);
                 }
                 if (statusText && statusDiv) {
                     if (data.enabled !== false && data.message && data.message.trim() !== '') {
@@ -1017,14 +1057,20 @@ class App {
         const enabledCheckbox = document.getElementById('banner-enabled-checkbox');
         const fontSizeSelect = document.getElementById('banner-font-size');
         const phoneFontSizeSelect = document.getElementById('banner-phone-font-size');
+        const textColorInput = document.getElementById('banner-text-color');
+        const phoneColorInput = document.getElementById('banner-phone-color');
+        const fontFamilySelect = document.getElementById('banner-font-family');
         
         if (!messageInput || !enabledCheckbox || !fontSizeSelect || !phoneFontSizeSelect) return;
 
         const message = messageInput.value.trim();
-        const phoneNumber = phoneNumberInput ? phoneNumberInput.value.trim() : '';
+        const phoneNumber = phoneNumberInput ? (phoneNumberInput.value.trim() || this.defaultBannerPhone) : this.defaultBannerPhone;
         const enabled = enabledCheckbox.checked;
         const fontSize = parseInt(fontSizeSelect.value);
         const phoneFontSize = parseInt(phoneFontSizeSelect.value);
+        const textColor = textColorInput ? textColorInput.value : '#ffffff';
+        const phoneColor = phoneColorInput ? phoneColorInput.value : '#ffffff';
+        const fontFamily = fontFamilySelect ? fontFamilySelect.value : this.defaultBannerFontFamily;
 
         try {
             const response = await fetch('/api/banner-message', {
@@ -1037,7 +1083,10 @@ class App {
                     phoneNumber: phoneNumber,
                     enabled: enabled,
                     fontSize: fontSize,
-                    phoneFontSize: phoneFontSize
+                    phoneFontSize: phoneFontSize,
+                    textColor: textColor,
+                    phoneColor: phoneColor,
+                    fontFamily: fontFamily
                 })
             });
 
@@ -1047,7 +1096,11 @@ class App {
                 
                 // If enabled and has message, show the banner
                 if (enabled && message) {
-                    this.showBanner(message, fontSize, phoneNumber, phoneFontSize);
+                    this.showBanner(message, fontSize, phoneNumber, phoneFontSize, {
+                        textColor,
+                        phoneColor,
+                        fontFamily
+                    });
                 } else {
                     this.hideBanner();
                 }
@@ -1065,11 +1118,21 @@ class App {
         const phoneNumberInput = document.getElementById('banner-phone-number');
         const fontSizeSelect = document.getElementById('banner-font-size');
         const phoneFontSizeSelect = document.getElementById('banner-phone-font-size');
+        const textColorInput = document.getElementById('banner-text-color');
+        const phoneColorInput = document.getElementById('banner-phone-color');
+        const fontFamilySelect = document.getElementById('banner-font-family');
         if (messageInput && messageInput.value.trim() && fontSizeSelect && phoneFontSizeSelect) {
             const fontSize = parseInt(fontSizeSelect.value);
-            const phoneNumber = phoneNumberInput ? phoneNumberInput.value.trim() : '';
+            const phoneNumber = phoneNumberInput ? (phoneNumberInput.value.trim() || this.defaultBannerPhone) : this.defaultBannerPhone;
             const phoneFontSize = parseInt(phoneFontSizeSelect.value);
-            this.showBanner(messageInput.value.trim(), fontSize, phoneNumber, phoneFontSize);
+            const textColor = textColorInput ? textColorInput.value : '#ffffff';
+            const phoneColor = phoneColorInput ? phoneColorInput.value : '#ffffff';
+            const fontFamily = fontFamilySelect ? fontFamilySelect.value : this.defaultBannerFontFamily;
+            this.showBanner(messageInput.value.trim(), fontSize, phoneNumber, phoneFontSize, {
+                textColor,
+                phoneColor,
+                fontFamily
+            });
         } else {
             this.showNotification('Please enter a message to preview', 'warning');
         }
@@ -1129,9 +1192,28 @@ class App {
         if (enabledCheckbox) {
             enabledCheckbox.addEventListener('change', () => this.updateBannerStatus());
         }
+
+        const fontFamilySelect = document.getElementById('banner-font-family');
+        if (fontFamilySelect) {
+            fontFamilySelect.addEventListener('change', (event) => {
+                fontFamilySelect.style.fontFamily = this.getFontStack(event.target.value);
+            });
+        }
     }
 
     // Utility methods
+    getFontStack(fontName) {
+        const fontStacks = {
+            Inter: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif",
+            Montserrat: "'Montserrat', 'Inter', 'Segoe UI', sans-serif",
+            Poppins: "'Poppins', 'Inter', 'Segoe UI', sans-serif",
+            Roboto: "'Roboto', 'Helvetica Neue', Arial, sans-serif",
+            'Playfair Display': "'Playfair Display', 'Times New Roman', serif",
+            Lora: "'Lora', 'Times New Roman', serif"
+        };
+        return fontStacks[fontName] || `'${fontName}', 'Inter', sans-serif`;
+    }
+
     formatTimestamp(timestamp) {
         return new Date(timestamp).toLocaleString();
     }

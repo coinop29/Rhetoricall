@@ -33,9 +33,17 @@ logger = logging.getLogger(__name__)
 # Global display mode setting
 global_display_mode = 'image'
 
-# Global banner message setting
-global_banner_message = "Welcome to Rhetorical SMS Visualization! Send messages to see them appear in 3D."
-global_banner_enabled = True
+# Global banner settings
+global_banner_settings = {
+    "message": "Welcome to Rhetorical SMS Visualization! Send messages to see them appear in 3D.",
+    "enabled": True,
+    "fontSize": 24,
+    "phoneNumber": "+1 (516) 874-0789",
+    "phoneFontSize": 32,
+    "textColor": "#ffffff",
+    "phoneColor": "#ffffff",
+    "fontFamily": "Inter"
+}
 
 # WebSocket connection manager
 class ConnectionManager:
@@ -529,35 +537,39 @@ async def load_twilio_data():
 async def get_banner_message():
     """Get the current banner message"""
     try:
-        # For now, return a default message. In production, this could come from database
-        return {
-            "message": "Welcome to Rhetorical SMS Visualization! Send messages to see them appear in 3D.",
-            "enabled": True
-        }
+        return dict(global_banner_settings)
     except Exception as error:
         logger.error(f"Error getting banner message: {error}")
-        return {"message": "", "enabled": False}
+        return dict(global_banner_settings)
 
 @app.post("/api/banner-message")
 async def set_banner_message(request: dict):
     """Set a new banner message"""
     try:
-        global global_banner_message, global_banner_enabled
-        
-        message = request.get("message", "")
-        enabled = request.get("enabled", True)
-        
-        # Update global variables
-        global_banner_message = message
-        global_banner_enabled = enabled
-        
-        logger.info(f"Banner message updated: '{message}' (enabled: {enabled})")
-        
-        return {
-            "success": True,
-            "message": message,
-            "enabled": enabled
+        global global_banner_settings
+
+        updated_settings = {
+            "message": request.get("message", global_banner_settings["message"]),
+            "enabled": request.get("enabled", global_banner_settings["enabled"]),
+            "fontSize": int(request.get("fontSize", global_banner_settings["fontSize"])),
+            "phoneNumber": request.get("phoneNumber", global_banner_settings["phoneNumber"]),
+            "phoneFontSize": int(request.get("phoneFontSize", global_banner_settings["phoneFontSize"])),
+            "textColor": request.get("textColor", global_banner_settings["textColor"]),
+            "phoneColor": request.get("phoneColor", global_banner_settings["phoneColor"]),
+            "fontFamily": request.get("fontFamily", global_banner_settings["fontFamily"])
         }
+
+        global_banner_settings.update(updated_settings)
+
+        logger.info(
+            "Banner settings updated: message='%s', enabled=%s, fontSize=%s, phone='%s'",
+            global_banner_settings["message"],
+            global_banner_settings["enabled"],
+            global_banner_settings["fontSize"],
+            global_banner_settings["phoneNumber"],
+        )
+
+        return {"success": True, **global_banner_settings}
     except Exception as error:
         logger.error(f"Error setting banner message: {error}")
         raise HTTPException(status_code=500, detail="Internal Server Error")

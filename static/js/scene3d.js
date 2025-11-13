@@ -432,7 +432,9 @@ class Scene3DManager {
             imageHeight = 12,
             captionColor = 0xffffff,
             textSize = 2.6,
-            captionSpacing = 2.0
+            captionSpacing = 0.0,
+            captionOverlap = 0.35,
+            captionBackgroundOpacity = 0.85
         } = options;
 
         const group = new THREE.Group();
@@ -464,8 +466,25 @@ class Scene3DManager {
                 textMesh.geometry.computeBoundingBox();
                 const textBox = textMesh.geometry.boundingBox;
                 const textHeight = textBox ? (textBox.max.y - textBox.min.y) : textSize * 1.6;
-                textMesh.position.set(0, -imageHeight / 2 - captionSpacing - textHeight / 2, 0);
+                
+                const backgroundHeight = textHeight + textSize * 0.8;
+                const backgroundPlane = new THREE.PlaneGeometry(imageWidth, backgroundHeight);
+                const backgroundMaterial = new THREE.MeshBasicMaterial({
+                    color: 0x000000,
+                    transparent: true,
+                    opacity: captionBackgroundOpacity
+                });
+                const backgroundMesh = new THREE.Mesh(backgroundPlane, backgroundMaterial);
+                const backgroundY = captionSpacing - captionOverlap - backgroundHeight / 2;
+                backgroundMesh.position.set(0, backgroundY, 0.2);
+                backgroundMesh.userData.keepUpright = true;
+                backgroundMesh.renderOrder = 1;
+                group.add(backgroundMesh);
+
+                const textY = backgroundY;
+                textMesh.position.set(0, textY, 0.6);
                 textMesh.userData.keepUpright = true;
+                textMesh.renderOrder = 2;
                 group.add(textMesh);
             }
         }
@@ -506,7 +525,9 @@ class Scene3DManager {
                 imageHeight: 12,
                 captionColor: captionColor,
                 textSize: 3.0,
-                captionSpacing: 2.2
+                captionSpacing: 0.0,
+                captionOverlap: 0.45,
+                captionBackgroundOpacity: 0.9
             });
             startPosition = {
                 x: (Math.random() - 0.5) * 20,
