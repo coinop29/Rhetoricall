@@ -214,6 +214,41 @@ class Scene3DManager {
         };
     }
 
+    createCurvedPath(currentPosition, range, speed = 0.0025) {
+        const start = {
+            x: currentPosition.x,
+            y: currentPosition.y,
+            z: currentPosition.z
+        };
+        const end = this.getRandomTarget(range);
+        const control = {
+            x: (start.x + end.x) / 2 + (Math.random() - 0.5) * (range.x || 120) * 0.4,
+            y: (start.y + end.y) / 2 + (Math.random() - 0.5) * (range.y || 80) * 0.4,
+            z: (start.z + end.z) / 2 + (Math.random() - 0.5) * ((range.zMax || 60) - (range.zMin || -140)) * 0.3
+        };
+        const distance = Math.sqrt(
+            Math.pow(end.x - start.x, 2) +
+            Math.pow(end.y - start.y, 2) +
+            Math.pow(end.z - start.z, 2)
+        );
+        const adaptiveSpeed = Math.min(0.02, Math.max(0.0012, speed || (distance / 60000)));
+        return {
+            start,
+            control,
+            end,
+            t: 0,
+            speed: adaptiveSpeed
+        };
+    }
+
+    getQuadraticBezierPoint(start, control, end, t) {
+        const invT = 1 - t;
+        const x = invT * invT * start.x + 2 * invT * t * control.x + t * t * end.x;
+        const y = invT * invT * start.y + 2 * invT * t * control.y + t * t * end.y;
+        const z = invT * invT * start.z + 2 * invT * t * control.z + t * t * end.z;
+        return { x, y, z };
+    }
+
     createTextParticles(text, options = {}) {
         if (!this.font) {
             console.error('❌ Font not loaded yet');
@@ -577,6 +612,8 @@ class Scene3DManager {
             object.userData.targetRange = object.userData.targetRange || defaultRange;
             object.userData.targetPosition = this.getRandomTarget(object.userData.targetRange);
             object.userData.movementSpeed = object.userData.movementSpeed || (isImage ? 0.6 : 0.5);
+            object.userData.curveSpeed = object.userData.curveSpeed || (isImage ? 0.0016 : 0.0025);
+            object.userData.curve = null;
             object.userData.rotation = {
                 x: 0,
                 y: 0,
@@ -775,6 +812,8 @@ class Scene3DManager {
                         imageMesh.userData.targetRange = object.userData.targetRange || { x: 160, y: 100, zMin: -160, zMax: 60 };
                         imageMesh.userData.targetPosition = object.userData.targetPosition || this.getRandomTarget(imageMesh.userData.targetRange);
                         imageMesh.userData.movementSpeed = object.userData.movementSpeed || 0.5;
+                        imageMesh.userData.curveSpeed = object.userData.curveSpeed || 0.0018;
+                        imageMesh.userData.curve = null;
                         
                         imageMesh.userData.rotation = {
                             x: 0,
@@ -855,6 +894,8 @@ class Scene3DManager {
                         textMesh.userData.targetRange = object.userData.targetRange || { x: 160, y: 100, zMin: -160, zMax: 60 };
                         textMesh.userData.targetPosition = object.userData.targetPosition || this.getRandomTarget(textMesh.userData.targetRange);
                         textMesh.userData.movementSpeed = object.userData.movementSpeed || 0.5;
+                        textMesh.userData.curveSpeed = object.userData.curveSpeed || 0.0025;
+                        textMesh.userData.curve = null;
                         
                         // Set minimal rotation for upright text
                         textMesh.userData.rotation = {
@@ -882,8 +923,9 @@ class Scene3DManager {
                 }
             }
 
-            if (object.userData.useTargetMovement) {
-                // Target-based movement system (from faizan/client branch)
+            const isMorphing = object.userData.isParticles || object.userData.isImageParticles;
+            
+            if (object.userData.useTargetMovement && !isMorphing) {
                 if (!object.userData.currentPosition) {
                     object.userData.currentPosition = {
                         x: object.position.x,
@@ -894,52 +936,36 @@ class Scene3DManager {
                 if (!object.userData.targetRange) {
                     object.userData.targetRange = { x: 160, y: 100, zMin: -160, zMax: 60 };
                 }
-                if (!object.userData.targetPosition) {
-                    object.userData.targetPosition = this.getRandomTarget(object.userData.targetRange);
+                if (!object.userData.curveSpeed) {
+                    object.userData.curveSpeed = object.userData.movementSpeed
+                        ? Math.max(0.0012, object.userData.movementSpeed * 0.002)
+                        : 0.0025;
                 }
-                if (!object.userData.movementSpeed) {
-                    object.userData.movementSpeed = 0.5;
+                if (!object.userData.curve) {
+                    object.userData.curve = this.createCurvedPath(
+                        object.userData.currentPosition,
+                        object.userData.targetRange,
+                        object.userData.curveSpeed
+                    );
                 }
 
-                const current = object.userData.currentPosition;
-                const target = object.userData.targetPosition;
-                const speed = object.userData.movementSpeed;
-                
-                // Calculate direction vector toward target
-                const dirX = target.x - current.x;
-                const dirY = target.y - current.y;
-                const dirZ = target.z - current.z;
-                const distance = Math.sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ);
-                let remainingDistance = distance;
                 const hasHold = object.userData.holdFrames && object.userData.holdFrames > 0;
-                
                 if (hasHold) {
                     object.userData.holdFrames -= 1;
-                } else if (distance > 0) {
-                    // Normalize direction and scale by speed
-                    const moveX = (dirX / distance) * speed;
-                    const moveY = (dirY / distance) * speed;
-                    const moveZ = (dirZ / distance) * speed;
-                    
-                    // Move current position toward target
-                    current.x += moveX;
-                    current.y += moveY;
-                    current.z += moveZ;
-                    
-                    // Update object position
-                    object.position.x = current.x;
-                    object.position.y = current.y;
-                    object.position.z = current.z;
-                    
-                    const newDirX = target.x - current.x;
-                    const newDirY = target.y - current.y;
-                    const newDirZ = target.z - current.z;
-                    remainingDistance = Math.sqrt(newDirX * newDirX + newDirY * newDirY + newDirZ * newDirZ);
-                }
-                
-                // If close to target (distance < 1), pick a new random target
-                if (!hasHold && remainingDistance < 1) {
-                    object.userData.targetPosition = this.getRandomTarget(object.userData.targetRange);
+                } else if (object.userData.curve) {
+                    const curve = object.userData.curve;
+                    curve.t = Math.min(1, curve.t + curve.speed);
+                    const point = this.getQuadraticBezierPoint(curve.start, curve.control, curve.end, curve.t);
+                    object.userData.currentPosition = point;
+                    object.position.set(point.x, point.y, point.z);
+
+                    if (curve.t >= 1) {
+                        object.userData.curve = this.createCurvedPath(
+                            point,
+                            object.userData.targetRange,
+                            curve.speed
+                        );
+                    }
                 }
 
             } else if (object.userData.useQueueFlow) {
