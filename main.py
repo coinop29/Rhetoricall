@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, UploadFile, File, Form, Request
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, UploadFile, File, Form, Request, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import Response, JSONResponse, HTMLResponse
@@ -411,10 +411,9 @@ async def dev_message_incoming(payload: dict):
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 # Background video endpoints
-@app.post("/api/upload")
-async def upload_background(file: UploadFile = File(...)):
+async def process_background_upload(filename: str, file_content: bytes, file_url: str):
+    """Background task to save file and create database record"""
     try:
-        filename = f"{int(datetime.now().timestamp() * 1000)}-{file.filename}"
         file_path = f"static/media/{filename}"
         
         # Ensure the directory exists
@@ -422,21 +421,41 @@ async def upload_background(file: UploadFile = File(...)):
         
         # Save file
         with open(file_path, "wb") as buffer:
-            content = await file.read()
-            buffer.write(content)
+            buffer.write(file_content)
+        
+        logger.info(f"File saved to: {file_path}")
         
         # Create database record
-        file_url = f"/static/media/{filename}"
         background = BackgroundVideo(
             url=file_url,
             filename=filename
         )
         
         await background_service.create_background(background)
+        logger.info(f"Background record created for: {filename}")
         
+    except Exception as error:
+        logger.error(f"Error in background task for {filename}: {error}")
+
+@app.post("/api/upload")
+async def upload_background(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
+    try:
+        filename = f"{int(datetime.now().timestamp() * 1000)}-{file.filename}"
+        file_url = f"/static/media/{filename}"
+        
+        # Read file content
+        content = await file.read()
+        
+        # Add background task to save file and create database record
+        background_tasks.add_task(process_background_upload, filename, content, file_url)
+        
+        logger.info(f"Upload task queued for: {filename}")
+        
+        # Return immediately while file is processed in background
         return {
             "url": file_url,
-            "filename": filename
+            "filename": filename,
+            "status": "processing"
         }
     except Exception as error:
         logger.error(f"Error in /api/upload: {error}")

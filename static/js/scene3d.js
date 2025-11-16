@@ -325,7 +325,7 @@ class Scene3DManager {
         points.userData.isParticles = true;
         points.userData.particleTargetPositions = targetPositions;
         points.userData.morphProgress = 0;
-        points.userData.morphSpeed = 0.15; // higher is faster morph - increased from 0.06
+        points.userData.morphSpeed = 0.06; // Slower morph for visible particle effect
         points.userData.finalTextSpec = { text, size, height, color };
         points.userData.rotation = {
             x: (Math.random() - 0.5) * 0.003,
@@ -393,7 +393,7 @@ class Scene3DManager {
         points.userData.isImageParticles = true;
         points.userData.particleTargetPositions = targetPositions;
         points.userData.morphProgress = 0;
-        points.userData.morphSpeed = 0.15; // increased from 0.06 for faster morph
+        points.userData.morphSpeed = 0.06; // Slower morph for visible particle effect
         points.userData.finalImageSpec = { imageUrl, width, height, position };
         points.userData.keepUpright = true;
 
@@ -774,7 +774,7 @@ class Scene3DManager {
                 const targets = object.userData.particleTargetPositions;
                 const count = positions.length / 3;
                 let reached = 0;
-                const speed = object.userData.morphSpeed || 0.15; // Increased default from 0.1
+                const speed = object.userData.morphSpeed || 0.06; // Slower default for visible effect
                 for (let i = 0; i < count; i++) {
                     const i3 = i * 3;
                     // Lerp toward target
@@ -794,7 +794,7 @@ class Scene3DManager {
 
                 // When enough particles are close, swap to the final image mesh
                 const completionRatio = reached / count;
-                if (completionRatio > 0.92 || object.userData.lifetime > 240) {
+                if (completionRatio > 0.92 || object.userData.lifetime > 600) {
                     const spec = object.userData.finalImageSpec;
                     const imageMesh = this.create3DImage(spec.imageUrl, {
                         position: { x: 0, y: 0, z: 0 },
@@ -848,7 +848,7 @@ class Scene3DManager {
                 const targets = object.userData.particleTargetPositions;
                 const count = positions.length / 3;
                 let reached = 0;
-                const speed = object.userData.morphSpeed || 0.15; // Increased default from 0.1
+                const speed = object.userData.morphSpeed || 0.06; // Slower default for visible effect
                 for (let i = 0; i < count; i++) {
                     const i3 = i * 3;
                     // Lerp toward target
@@ -875,7 +875,7 @@ class Scene3DManager {
 
                 // When enough particles are close, swap to the final text mesh
                 const completionRatio = reached / count;
-                if (completionRatio > 0.92 || object.userData.lifetime > 240) {
+                if (completionRatio > 0.92 || object.userData.lifetime > 600) {
                     const spec = object.userData.finalTextSpec;
                     const textMesh = this.create3DText(spec.text, {
                         position: { x: 0, y: 0, z: 0 },
