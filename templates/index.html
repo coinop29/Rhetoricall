@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rhetorical - SMS 3D Visualization</title>
     <link rel="stylesheet" href="/static/css/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@400;600&family=Poppins:wght@400;600&family=Roboto:wght@400;700&family=Playfair+Display:wght@500;700&family=Lora:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@400;600&family=Poppins:wght@400;600&family=Roboto:wght@400;700&family=Playfair+Display:wght@500;700&family=Lora:wght@400;600&family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=Creepster&family=Nosifer&family=Russo+One&display=swap" rel="stylesheet">
     <!-- Three.js for 3D rendering -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
@@ -14,7 +14,7 @@
         <!-- Dynamic Message Banner -->
         <div id="message-banner" class="message-banner">
             <div class="banner-content">
-                <span id="banner-text">Welcome to Rhetorical SMS Visualization!</span>
+                <span id="banner-text">WHAT IS YOUR CRITICAL IDEA?</span>
                 <span id="banner-phone" class="banner-phone" style="display:none;"></span>
                 <button id="close-banner" class="close-banner-btn">×</button>
             </div>
@@ -150,7 +150,12 @@
                         <div class="form-group">
                             <label for="banner-font-family">Banner Font:</label>
                             <select id="banner-font-family" style="padding:8px;border-radius:4px;border:1px solid rgba(255,255,255,0.2);background:rgba(0,0,0,0.3);color:#fff;font-family:'Inter', sans-serif;">
-                                <option value="Inter" selected>Inter</option>
+                                <option value="Orbitron" selected>Orbitron (Futuristic)</option>
+                                <option value="Rajdhani">Rajdhani (Blocky)</option>
+                                <option value="Russo One">Russo One (Bold Outlined)</option>
+                                <option value="Creepster">Creepster (Grungy)</option>
+                                <option value="Nosifer">Nosifer (Distressed)</option>
+                                <option value="Inter">Inter</option>
                                 <option value="Montserrat">Montserrat</option>
                                 <option value="Poppins">Poppins</option>
                                 <option value="Roboto">Roboto</option>

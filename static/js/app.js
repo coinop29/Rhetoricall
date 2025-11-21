@@ -9,7 +9,7 @@ class App {
         this.randomizeColors = false;
         this.uiVisible = true;
         this.defaultBannerPhone = '+1 (516) 874-0789';
-        this.defaultBannerFontFamily = 'Inter';
+        this.defaultBannerFontFamily = 'Orbitron';
         
         this.init();
     }
@@ -923,10 +923,10 @@ class App {
             console.warn('⚠️ Could not load banner message:', error);
             // Show default banner if API fails
             this.showBanner(
-                'Welcome to Rhetorical SMS Visualization!',
+                'WHAT IS YOUR CRITICAL IDEA?',
                 24,
-                this.defaultBannerPhone,
-                32,
+                this.defaultBannerPhone || '845-524-9694',
+                20,
                 {
                     textColor: '#ffffff',
                     phoneColor: '#ffffff',
@@ -947,6 +947,18 @@ class App {
         } = options;
 
         if (banner && bannerText) {
+            // Remove existing style classes
+            banner.classList.remove('banner-style-futuristic', 'banner-style-grungy', 'banner-style-outlined');
+            
+            // Apply style class based on font
+            if (fontFamily === 'Russo One') {
+                banner.classList.add('banner-style-outlined');
+            } else if (fontFamily === 'Creepster' || fontFamily === 'Nosifer') {
+                banner.classList.add('banner-style-grungy');
+            } else if (fontFamily === 'Orbitron' || fontFamily === 'Rajdhani') {
+                banner.classList.add('banner-style-futuristic');
+            }
+            
             bannerText.textContent = message;
             bannerText.style.fontSize = `${fontSize}px`;
             bannerText.style.color = textColor;
@@ -954,9 +966,10 @@ class App {
             
             if (bannerPhone) {
                 if (phoneNumber && phoneNumber.trim() !== '') {
-                    bannerPhone.textContent = phoneNumber;
+                    bannerPhone.textContent = `Text Your Answer to ${phoneNumber}`;
                     bannerPhone.style.fontSize = `${phoneFontSize}px`;
                     bannerPhone.style.color = phoneColor;
+                    bannerPhone.style.fontFamily = this.getFontStack(fontFamily);
                     bannerPhone.style.display = 'block';
                 } else {
                     bannerPhone.style.display = 'none';
@@ -1209,9 +1222,14 @@ class App {
             Poppins: "'Poppins', 'Inter', 'Segoe UI', sans-serif",
             Roboto: "'Roboto', 'Helvetica Neue', Arial, sans-serif",
             'Playfair Display': "'Playfair Display', 'Times New Roman', serif",
-            Lora: "'Lora', 'Times New Roman', serif"
+            Lora: "'Lora', 'Times New Roman', serif",
+            Orbitron: "'Orbitron', 'Rajdhani', 'Russo One', sans-serif",
+            Rajdhani: "'Rajdhani', 'Orbitron', 'Russo One', sans-serif",
+            'Russo One': "'Russo One', 'Orbitron', 'Rajdhani', sans-serif",
+            Creepster: "'Creepster', 'Nosifer', sans-serif",
+            Nosifer: "'Nosifer', 'Creepster', sans-serif"
         };
-        return fontStacks[fontName] || `'${fontName}', 'Inter', sans-serif`;
+        return fontStacks[fontName] || `'${fontName}', 'Orbitron', sans-serif`;
     }
 
     formatTimestamp(timestamp) {

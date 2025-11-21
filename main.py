@@ -14,6 +14,7 @@ import time
 import uvicorn
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
+from starlette.middleware.base import BaseHTTPMiddleware
 
 # Load environment variables from .env file
 load_dotenv()
@@ -35,14 +36,14 @@ global_display_mode = 'image'
 
 # Global banner settings
 global_banner_settings = {
-    "message": "Welcome to Rhetorical SMS Visualization! Send messages to see them appear in 3D.",
+    "message": "WHAT IS YOUR CRITICAL IDEA?",
     "enabled": True,
     "fontSize": 24,
-    "phoneNumber": "+1 (516) 874-0789",
-    "phoneFontSize": 32,
+    "phoneNumber": "845-524-9694",
+    "phoneFontSize": 20,
     "textColor": "#ffffff",
     "phoneColor": "#ffffff",
-    "fontFamily": "Inter"
+    "fontFamily": "Orbitron"
 }
 
 # WebSocket connection manager
@@ -111,6 +112,13 @@ templates = Jinja2Templates(directory="templates")
 
 # Background service
 background_service = BackgroundService()
+
+# Note: uvicorn has a hardcoded ~1MB request body limit in its HTTP parser
+# The 413 error occurs before the request reaches FastAPI
+# Solutions:
+# 1. Use hypercorn instead (has configurable limits) - see requirements.txt
+# 2. Use nginx reverse proxy with: client_max_body_size 100m;
+# 3. For local dev, the limit may be higher, but production needs proper config
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -443,13 +451,16 @@ async def upload_background(background_tasks: BackgroundTasks, file: UploadFile 
         filename = f"{int(datetime.now().timestamp() * 1000)}-{file.filename}"
         file_url = f"/static/media/{filename}"
         
-        # Read file content
-        content = await file.read()
+        # Read file content in chunks to handle large files
+        # This helps avoid memory issues with very large files
+        content = b""
+        while chunk := await file.read(1024 * 1024):  # Read in 1MB chunks
+            content += chunk
         
         # Add background task to save file and create database record
         background_tasks.add_task(process_background_upload, filename, content, file_url)
         
-        logger.info(f"Upload task queued for: {filename}")
+        logger.info(f"Upload task queued for: {filename} (size: {len(content)} bytes)")
         
         # Return immediately while file is processed in background
         return {
@@ -594,5 +605,21 @@ async def set_banner_message(request: dict):
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 if __name__ == "__main__":
+    import sys
     port = int(os.getenv("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    server_type = os.getenv("SERVER_TYPE", "uvicorn").lower()
+    
+    if server_type == "hypercorn":
+        # Use hypercorn which supports configurable max_incomplete_size for large uploads
+        from hypercorn.config import Config as HypercornConfig
+        from hypercorn.asyncio import serve
+        
+        config = HypercornConfig()
+        config.bind = [f"0.0.0.0:{port}"]
+        config.max_incomplete_size = 100 * 1024 * 1024  # 100MB
+        logger.info(f"Starting server with hypercorn on port {port} (supports large uploads up to 100MB)")
+        asyncio.run(serve(app, config))
+    else:
+        # Use uvicorn (has ~1MB limit, use hypercorn or nginx for larger files)
+        logger.warning("Using uvicorn - request body size is limited to ~1MB. For larger uploads, set SERVER_TYPE=hypercorn or use nginx reverse proxy")
+        uvicorn.run(app, host="0.0.0.0", port=port)
