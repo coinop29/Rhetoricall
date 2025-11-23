@@ -966,7 +966,7 @@ class App {
             
             if (bannerPhone) {
                 if (phoneNumber && phoneNumber.trim() !== '') {
-                    bannerPhone.textContent = `Text Your Answer to ${phoneNumber}`;
+                    bannerPhone.textContent = `SMS/ WhatsApp / iMessage your Answer to ${phoneNumber}`;
                     bannerPhone.style.fontSize = `${phoneFontSize}px`;
                     bannerPhone.style.color = phoneColor;
                     bannerPhone.style.fontFamily = this.getFontStack(fontFamily);
