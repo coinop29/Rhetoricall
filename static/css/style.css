@@ -26,7 +26,11 @@ body {
     top: 0;
     left: 0;
     right: 0;
-    background: url('/static/media/stars2.gif') center center / cover no-repeat;
+    background: url('/static/media/stars2.gif') center center no-repeat;
+    background-size: 100% auto;
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
     color: white;
     padding: 24px 28px;
     z-index: 2000;
@@ -108,27 +112,7 @@ body {
 }
 
 .close-banner-btn {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    background: rgba(255, 255, 255, 0.2);
-    border: none;
-    color: white;
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    cursor: pointer;
-    font-size: 18px;
-    font-weight: bold;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background-color 0.2s ease;
-    z-index: 10;
-}
-
-.close-banner-btn:hover {
-    background: rgba(255, 255, 255, 0.3);
+    display: none !important;
 }
 
 /* Adjust other elements when banner is visible */
