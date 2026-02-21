@@ -19,6 +19,26 @@ from starlette.middleware.base import BaseHTTPMiddleware
 # Load environment variables from .env file
 load_dotenv()
 
+# Env keys to redact when logging (sensitive values)
+_REDACT_KEYS = frozenset({
+    "password", "secret", "token", "key", "auth"
+})
+
+def _is_sensitive(key: str) -> bool:
+    k = key.lower()
+    return any(r in k for r in _REDACT_KEYS)
+
+def _log_env_on_startup():
+    """Log all env vars at server start. Redacts sensitive values."""
+    logger.info("=== Environment variables (startup) ===")
+    # Sort for consistent output
+    for key in sorted(os.environ.keys()):
+        val = os.environ[key]
+        if _is_sensitive(key):
+            val = "[REDACTED]" if val else "[NOT SET]"
+        logger.info("  %s=%s", key, val)
+    logger.info("=======================================")
+
 # Import our modules
 from database import init_db, insert_item, check_phone_number
 from twilio_service import init_twilio
@@ -82,6 +102,7 @@ manager = ConnectionManager()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
+    _log_env_on_startup()
     await init_db()
     await init_twilio()
     logger.info("Application startup complete")

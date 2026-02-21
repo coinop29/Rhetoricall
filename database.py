@@ -9,20 +9,44 @@ logger = logging.getLogger(__name__)
 # Global database connection
 db = None
 
+def _redact_connection_string(url: str) -> str:
+    """Redact password in MongoDB URL for safe logging: mongodb://user:pass@host -> mongodb://user:****@host"""
+    if "://" not in url or "@" not in url:
+        return url
+    scheme, rest = url.split("://", 1)
+    if "@" in rest:
+        user_part, host_part = rest.rsplit("@", 1)
+        if ":" in user_part:
+            user, _ = user_part.split(":", 1)
+            user_part = f"{user}:****"
+        return f"{scheme}://{user_part}@{host_part}"
+    return url
+
+
 async def init_db():
     """Initialize MongoDB connection"""
     global db
     try:
         connection_url = os.getenv("DB_URL")
+        logger.info("Initializing database connection...")
         if not connection_url:
+            logger.error("DB_URL environment variable is not set")
             raise ValueError("DB_URL environment variable is required")
-        
+
+        # Log DB connection string: full for local (no creds), redacted for remote
+        if "@" in connection_url:
+            db_url_log = _redact_connection_string(connection_url)
+            logger.info("DB connection string (redacted): %s", db_url_log)
+        else:
+            logger.info("DB connection string: %s", connection_url)
+
         client = AsyncIOMotorClient(connection_url)
         db = client.sms  # Database name
-        
+        logger.info("Database name: sms")
+
         # Test the connection
         await client.admin.command('ping')
-        logger.info("MongoDB server is connected")
+        logger.info("MongoDB connection established successfully")
         
     except Exception as e:
         logger.error(f"Error connecting to MongoDB: {e}")
