@@ -46,7 +46,7 @@ from image_service import get_image, get_current_provider
 from models import MessageItem, BackgroundVideo, DisplayMode
 from profanity_filter import clean_text
 from background_service import BackgroundService
-from video_storage import upload_video, is_local_storage
+from video_storage import upload_video, is_local_storage, get_cloudinary_thumbnail_url
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -503,7 +503,8 @@ async def get_backgrounds():
                         "url": f"/static/media/{filename}",
                         "filename": filename,
                         "isDefault": (filename == "grid2.mp4"),
-                        "_id": filename
+                        "_id": filename,
+                        "thumbnail_url": None,
                     })
             else:
                 logger.warning(f"Media directory not found: {media_dir}")
@@ -520,18 +521,22 @@ async def get_backgrounds():
                             "url": f"/static/media/{f}",
                             "filename": f,
                             "isDefault": (f == "grid2.mp4"),
-                            "_id": f
+                            "_id": f,
+                            "thumbnail_url": None,
                         })
             # Format DB records for API response
             backgrounds = []
             for b in backgrounds_raw:
                 doc_id = b.get("_id", "")
+                url = b.get("url", "")
+                thumb = get_cloudinary_thumbnail_url(url) if url and "cloudinary.com" in url else None
                 backgrounds.append({
-                    "url": b.get("url", ""),
+                    "url": url,
                     "filename": b.get("filename", ""),
                     "isDefault": b.get("isDefault", False),
                     "_id": doc_id,
                     "cloudinary_public_id": b.get("cloudinary_public_id"),
+                    "thumbnail_url": thumb,
                 })
             # Combine DB records with local defaults (DB first)
             existing_urls = {bg["url"] for bg in backgrounds}
@@ -545,11 +550,11 @@ async def get_backgrounds():
         logger.error(f"Error in /api/backgrounds: {error}")
         # Return default backgrounds as fallback
         return [
-            {"url": "/static/media/grid2.mp4", "filename": "grid2.mp4", "isDefault": True, "_id": "grid2"},
-            {"url": "/static/media/scifi1.mp4", "filename": "scifi1.mp4", "isDefault": False, "_id": "scifi1"},
-            {"url": "/static/media/scifi2.mp4", "filename": "scifi2.mp4", "isDefault": False, "_id": "scifi2"},
-            {"url": "/static/media/scifi3.mp4", "filename": "scifi3.mp4", "isDefault": False, "_id": "scifi3"},
-            {"url": "/static/media/tunnel.mp4", "filename": "tunnel.mp4", "isDefault": False, "_id": "tunnel"}
+            {"url": "/static/media/grid2.mp4", "filename": "grid2.mp4", "isDefault": True, "_id": "grid2", "thumbnail_url": None},
+            {"url": "/static/media/scifi1.mp4", "filename": "scifi1.mp4", "isDefault": False, "_id": "scifi1", "thumbnail_url": None},
+            {"url": "/static/media/scifi2.mp4", "filename": "scifi2.mp4", "isDefault": False, "_id": "scifi2", "thumbnail_url": None},
+            {"url": "/static/media/scifi3.mp4", "filename": "scifi3.mp4", "isDefault": False, "_id": "scifi3", "thumbnail_url": None},
+            {"url": "/static/media/tunnel.mp4", "filename": "tunnel.mp4", "isDefault": False, "_id": "tunnel", "thumbnail_url": None}
         ]
 
 @app.get("/api/getBackgroundsFromExternalServer")
@@ -579,7 +584,9 @@ async def get_default_background():
         background = await background_service.get_default_background()
         if not background:
             raise HTTPException(status_code=404, detail="Default background not found")
-        return background
+        url = background.get("url", "")
+        thumb = get_cloudinary_thumbnail_url(url) if url and "cloudinary.com" in url else None
+        return {**background, "thumbnail_url": thumb}
     except HTTPException:
         raise
     except Exception as error:
@@ -625,12 +632,14 @@ async def set_banner_message(request: dict):
     try:
         global global_banner_settings
 
+        fs = request.get("fontSize")
+        pfs = request.get("phoneFontSize")
         updated_settings = {
             "message": request.get("message", global_banner_settings["message"]),
             "enabled": request.get("enabled", global_banner_settings["enabled"]),
-            "fontSize": int(request.get("fontSize", global_banner_settings["fontSize"])),
+            "fontSize": int(fs) if fs is not None else global_banner_settings["fontSize"],
             "phoneNumber": request.get("phoneNumber", global_banner_settings["phoneNumber"]),
-            "phoneFontSize": int(request.get("phoneFontSize", global_banner_settings["phoneFontSize"])),
+            "phoneFontSize": int(pfs) if pfs is not None else global_banner_settings["phoneFontSize"],
             "textColor": request.get("textColor", global_banner_settings["textColor"]),
             "phoneColor": request.get("phoneColor", global_banner_settings["phoneColor"]),
             "fontFamily": request.get("fontFamily", global_banner_settings["fontFamily"])

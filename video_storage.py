@@ -20,6 +20,28 @@ def is_local_storage() -> bool:
     return USE_LOCAL_VIDEO_STORAGE
 
 
+def get_cloudinary_thumbnail_url(video_url: str, width: int = 200, height: int = 120) -> Optional[str]:
+    """
+    Generate a Cloudinary thumbnail URL from a video URL.
+    Uses so_0 (start at 0s), f_jpg (output as image), w/h/c_fill for thumbnail size.
+    Returns None for non-Cloudinary URLs.
+    """
+    if not video_url or "cloudinary.com" not in video_url or "/video/upload/" not in video_url:
+        return None
+    transform = f"so_0,f_jpg,w_{width},h_{height},c_fill"
+    marker = "/video/upload/"
+    idx = video_url.find(marker)
+    if idx == -1:
+        return None
+    insert_pos = idx + len(marker)
+    base = video_url[:insert_pos] + transform + "/" + video_url[insert_pos:]
+    url_no_qs = base.split("?")[0]
+    for ext in (".mp4", ".webm", ".mov"):
+        if url_no_qs.lower().endswith(ext):
+            return url_no_qs[: -len(ext)] + ".jpg"
+    return url_no_qs.rsplit(".", 1)[0] + ".jpg"
+
+
 async def upload_video(file_content: bytes, filename: str) -> Tuple[str, str, Optional[str]]:
     """
     Upload video to storage. Returns (url, filename, cloudinary_public_id or None).

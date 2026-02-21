@@ -451,6 +451,7 @@ class App {
 
         // Use url from API (local: /static/media/... or Cloudinary: full https URL)
         const videoUrl = background.url || `/static/media/${background.filename}`;
+        const thumbnailUrl = background.thumbnail_url || '';
         const currentVideo = document.getElementById('background-video');
         const isCurrent = currentVideo && currentVideo.src.includes(background.filename);
 
@@ -458,10 +459,12 @@ class App {
             div.classList.add('active');
         }
 
+        // Use thumbnail_url (Cloudinary) for instant preview; otherwise video preload="metadata"
+        const previewHtml = thumbnailUrl
+            ? `<img src="${thumbnailUrl}" alt="" class="background-thumb" loading="lazy">`
+            : `<video preload="metadata" muted><source src="${videoUrl}" type="video/mp4"></video>`;
         div.innerHTML = `
-            <video preload="metadata" muted>
-                <source src="${videoUrl}" type="video/mp4">
-            </video>
+            <div class="background-preview">${previewHtml}</div>
             <p class="background-name">${background.filename}</p>
             <div class="background-actions">
                 <button class="action-btn set-btn" onclick="event.stopPropagation(); var p=this.closest('.background-item'); window.app.setBackground(p.dataset.filename, p.dataset.url||'', p.dataset.backgroundId)">

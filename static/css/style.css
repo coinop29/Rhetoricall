@@ -854,7 +854,24 @@ body.banner-visible .mode-chip {
     border-color: rgba(76, 175, 80, 0.5);
 }
 
-.background-item video {
+.background-item .background-preview {
+    height: 120px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.background-item .background-preview video,
+.background-item .background-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* Legacy: direct video (pre-wrap structure) */
+.background-item > video {
     width: 100%;
     height: 120px;
     object-fit: cover;
