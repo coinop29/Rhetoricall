@@ -4,7 +4,7 @@ import aiohttp
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from bs4 import BeautifulSoup
-from database import db
+import database
 from models import BackgroundVideo
 from video_storage import delete_video
 
@@ -17,10 +17,11 @@ class BackgroundService:
     async def create_background(self, background: BackgroundVideo) -> str:
         """Create a new background video record"""
         try:
-            if db is None:
+            if database.db is None:
+                logger.error("create_background: Database not initialized")
                 raise RuntimeError("Database not initialized")
             
-            collection = db[self.collection_name]
+            collection = database.db[self.collection_name]
             background_dict = background.dict()
             background_dict["created_at"] = datetime.now()
             
@@ -35,12 +36,14 @@ class BackgroundService:
     async def get_all_backgrounds(self) -> List[Dict[str, Any]]:
         """Get all background videos"""
         try:
-            if db is None:
+            if database.db is None:
+                logger.error("get_all_backgrounds: Database not initialized")
                 raise RuntimeError("Database not initialized")
             
-            collection = db[self.collection_name]
+            collection = database.db[self.collection_name]
             cursor = collection.find().sort("created_at", -1)
             backgrounds = await cursor.to_list(length=None)
+            logger.info("get_all_backgrounds: Found %d backgrounds", len(backgrounds))
             
             # Convert ObjectId to string for JSON serialization
             for background in backgrounds:
@@ -58,11 +61,13 @@ class BackgroundService:
     async def get_default_background(self) -> Optional[Dict[str, Any]]:
         """Get the default background video"""
         try:
-            if db is None:
+            if database.db is None:
+                logger.error("get_default_background: Database not initialized")
                 raise RuntimeError("Database not initialized")
             
-            collection = db[self.collection_name]
+            collection = database.db[self.collection_name]
             background = await collection.find_one({"isDefault": True})
+            logger.debug("get_default_background: %s", "found" if background else "not found")
             
             if background and "_id" in background:
                 background["_id"] = str(background["_id"])
@@ -78,11 +83,12 @@ class BackgroundService:
     async def set_default_background(self, background_id: str) -> bool:
         """Set a background as default"""
         try:
-            if db is None:
+            if database.db is None:
+                logger.error("set_default_background: Database not initialized")
                 raise RuntimeError("Database not initialized")
             
             from bson import ObjectId
-            collection = db[self.collection_name]
+            collection = database.db[self.collection_name]
             
             # Unset previous default
             await collection.update_many(
@@ -105,11 +111,12 @@ class BackgroundService:
     async def delete_background(self, background_id: str) -> bool:
         """Delete a background video"""
         try:
-            if db is None:
+            if database.db is None:
+                logger.error("delete_background: Database not initialized")
                 raise RuntimeError("Database not initialized")
             
             from bson import ObjectId
-            collection = db[self.collection_name]
+            collection = database.db[self.collection_name]
             
             # Get background info before deletion
             background = await collection.find_one({"_id": ObjectId(background_id)})
@@ -153,10 +160,11 @@ class BackgroundService:
             logger.info(f"Found {len(links)} video links from external server")
             
             # Get existing URLs from database
-            if db is None:
+            if database.db is None:
+                logger.error("fetch_and_save_external_backgrounds: Database not initialized")
                 raise RuntimeError("Database not initialized")
             
-            collection = db[self.collection_name]
+            collection = database.db[self.collection_name]
             existing_videos = await collection.find({}, {"url": 1}).to_list(length=None)
             existing_urls = [video["url"] for video in existing_videos]
             

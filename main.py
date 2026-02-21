@@ -104,6 +104,7 @@ async def lifespan(app: FastAPI):
     # Startup
     _log_env_on_startup()
     await init_db()
+    logger.info("Database initialized and ready")
     await init_twilio()
     logger.info("Application startup complete")
     yield

@@ -47,6 +47,7 @@ async def init_db():
         # Test the connection
         await client.admin.command('ping')
         logger.info("MongoDB connection established successfully")
+        logger.info("Database ready for requests (db=%s)", db.name)
         
     except Exception as e:
         logger.error(f"Error connecting to MongoDB: {e}")
