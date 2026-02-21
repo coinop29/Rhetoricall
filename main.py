@@ -26,6 +26,7 @@ from image_service import get_image, get_current_provider
 from models import MessageItem, BackgroundVideo, DisplayMode
 from profanity_filter import clean_text
 from background_service import BackgroundService
+from video_storage import upload_video, is_local_storage
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -419,24 +420,16 @@ async def dev_message_incoming(payload: dict):
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 # Background video endpoints
-async def process_background_upload(filename: str, file_content: bytes, file_url: str):
-    """Background task to save file and create database record"""
+async def process_background_upload(filename: str, file_content: bytes):
+    """Background task to upload video (local or Cloudinary) and create database record"""
     try:
-        file_path = f"static/media/{filename}"
-        
-        # Ensure the directory exists
-        os.makedirs("static/media", exist_ok=True)
-        
-        # Save file
-        with open(file_path, "wb") as buffer:
-            buffer.write(file_content)
-        
-        logger.info(f"File saved to: {file_path}")
+        file_url, stored_filename, cloudinary_public_id = await upload_video(file_content, filename)
         
         # Create database record
         background = BackgroundVideo(
             url=file_url,
-            filename=filename
+            filename=stored_filename,
+            cloudinary_public_id=cloudinary_public_id
         )
         
         await background_service.create_background(background)
@@ -449,20 +442,19 @@ async def process_background_upload(filename: str, file_content: bytes, file_url
 async def upload_background(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
     try:
         filename = f"{int(datetime.now().timestamp() * 1000)}-{file.filename}"
-        file_url = f"/static/media/{filename}"
         
         # Read file content in chunks to handle large files
-        # This helps avoid memory issues with very large files
         content = b""
         while chunk := await file.read(1024 * 1024):  # Read in 1MB chunks
             content += chunk
         
-        # Add background task to save file and create database record
-        background_tasks.add_task(process_background_upload, filename, content, file_url)
+        # Add background task to upload and create database record
+        background_tasks.add_task(process_background_upload, filename, content)
         
         logger.info(f"Upload task queued for: {filename} (size: {len(content)} bytes)")
         
-        # Return immediately while file is processed in background
+        # For local storage, URL is predictable; for Cloudinary, client should refetch /api/backgrounds
+        file_url = f"/static/media/{filename}" if is_local_storage() else ""
         return {
             "url": file_url,
             "filename": filename,
@@ -475,24 +467,57 @@ async def upload_background(background_tasks: BackgroundTasks, file: UploadFile 
 @app.get("/api/backgrounds")
 async def get_backgrounds():
     try:
-        # List files from static/media directory
-        media_dir = "static/media"
-        backgrounds = []
-        
-        if os.path.exists(media_dir):
-            files = os.listdir(media_dir)
-            mp4_files = [f for f in files if f.endswith('.mp4')]
+        if is_local_storage():
+            # List files from static/media directory
+            media_dir = "static/media"
+            backgrounds = []
             
-            for i, filename in enumerate(mp4_files):
-                backgrounds.append({
-                    "url": f"/static/media/{filename}",
-                    "filename": filename,
-                    "isDefault": (filename == "grid2.mp4"),  # Set grid2 as default
-                    "_id": filename
-                })
+            if os.path.exists(media_dir):
+                files = os.listdir(media_dir)
+                mp4_files = [f for f in files if f.endswith('.mp4')]
+                
+                for i, filename in enumerate(mp4_files):
+                    backgrounds.append({
+                        "url": f"/static/media/{filename}",
+                        "filename": filename,
+                        "isDefault": (filename == "grid2.mp4"),
+                        "_id": filename
+                    })
+            else:
+                logger.warning(f"Media directory not found: {media_dir}")
         else:
-            logger.warning(f"Media directory not found: {media_dir}")
-            
+            # Cloudinary: get from database (background_service stores all uploads there)
+            backgrounds_raw = await background_service.get_all_backgrounds()
+            # Also merge with default local fallbacks (grid2, etc.) if they exist locally
+            media_dir = "static/media"
+            local_defaults = []
+            if os.path.exists(media_dir):
+                for f in os.listdir(media_dir):
+                    if f.endswith('.mp4') and f in ("grid2.mp4", "scifi1.mp4", "scifi2.mp4", "scifi3.mp4", "tunnel.mp4"):
+                        local_defaults.append({
+                            "url": f"/static/media/{f}",
+                            "filename": f,
+                            "isDefault": (f == "grid2.mp4"),
+                            "_id": f
+                        })
+            # Format DB records for API response
+            backgrounds = []
+            for b in backgrounds_raw:
+                doc_id = b.get("_id", "")
+                backgrounds.append({
+                    "url": b.get("url", ""),
+                    "filename": b.get("filename", ""),
+                    "isDefault": b.get("isDefault", False),
+                    "_id": doc_id,
+                    "cloudinary_public_id": b.get("cloudinary_public_id"),
+                })
+            # Combine DB records with local defaults (DB first)
+            existing_urls = {bg["url"] for bg in backgrounds}
+            for ld in local_defaults:
+                if ld["url"] not in existing_urls:
+                    backgrounds.append(ld)
+                    existing_urls.add(ld["url"])
+        
         return backgrounds
     except Exception as error:
         logger.error(f"Error in /api/backgrounds: {error}")

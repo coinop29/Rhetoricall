@@ -6,6 +6,7 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 from database import db
 from models import BackgroundVideo
+from video_storage import delete_video
 
 logger = logging.getLogger(__name__)
 
@@ -113,33 +114,15 @@ class BackgroundService:
             # Get background info before deletion
             background = await collection.find_one({"_id": ObjectId(background_id)})
             
+            # Delete from storage (local filesystem or Cloudinary)
+            if background:
+                url = background.get("url", "")
+                filename = background.get("filename", "")
+                cloudinary_public_id = background.get("cloudinary_public_id")
+                await delete_video(url, filename, cloudinary_public_id)
+            
             # Delete from database
             result = await collection.delete_one({"_id": ObjectId(background_id)})
-            
-            # Optionally delete file from filesystem
-            if background and result.deleted_count > 0:
-                filename = background.get("filename")
-                if filename:
-                    # Try both static/media and public directories
-                    static_media_path = os.path.join("static/media", filename)
-                    public_path = os.path.join("public", filename)
-                    
-                    # Delete from static/media first (new location)
-                    try:
-                        if os.path.exists(static_media_path):
-                            os.remove(static_media_path)
-                            logger.info(f"File deleted: {static_media_path}")
-                    except Exception as file_error:
-                        logger.error(f"Error deleting file {static_media_path}: {file_error}")
-                    
-                    # Also try deleting from public (old location) if it exists
-                    try:
-                        if os.path.exists(public_path):
-                            os.remove(public_path)
-                            logger.info(f"File deleted: {public_path}")
-                    except Exception as file_error:
-                        logger.error(f"Error deleting file {public_path}: {file_error}")
-            
             return result.deleted_count > 0
             
         except Exception as e:

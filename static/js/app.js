@@ -446,8 +446,11 @@ class App {
         div.className = 'background-item';
         div.dataset.index = index;
         div.dataset.filename = background.filename;
+        div.dataset.url = background.url || '';
+        div.dataset.backgroundId = background._id || background.filename;
 
-        const videoUrl = `/static/media/${background.filename}`;
+        // Use url from API (local: /static/media/... or Cloudinary: full https URL)
+        const videoUrl = background.url || `/static/media/${background.filename}`;
         const currentVideo = document.getElementById('background-video');
         const isCurrent = currentVideo && currentVideo.src.includes(background.filename);
 
@@ -461,7 +464,7 @@ class App {
             </video>
             <p class="background-name">${background.filename}</p>
             <div class="background-actions">
-                <button class="action-btn set-btn" onclick="event.stopPropagation(); window.app.setBackground('${background.filename}')">
+                <button class="action-btn set-btn" onclick="event.stopPropagation(); var p=this.closest('.background-item'); window.app.setBackground(p.dataset.filename, p.dataset.url||'', p.dataset.backgroundId)">
                     ${isCurrent ? 'Current' : 'Set'}
                 </button>
                 <button class="action-btn delete-btn" onclick="event.stopPropagation(); window.app.deleteBackground('${background._id || background.filename}')">
@@ -472,36 +475,36 @@ class App {
 
         // Add click handler to set background
         div.addEventListener('click', () => {
-            this.setBackground(background.filename);
+            this.setBackground(background.filename, background.url, background._id || background.filename);
         });
 
         return div;
     }
 
-    async setBackground(filename) {
+    async setBackground(filename, url, backgroundId) {
         try {
-            // Update the main background video
+            // Use url when available (Cloudinary), else build local path
+            const videoUrl = url || `/static/media/${filename}`;
             const video = document.getElementById('background-video');
             if (video) {
-                const videoUrl = `/static/media/${filename}`;
                 video.src = videoUrl;
                 video.load();
             }
 
-            // Update current background info
-            this.updateCurrentBackgroundInfo(filename);
+            // Update current background info (pass url for Cloudinary)
+            this.updateCurrentBackgroundInfo(filename, videoUrl);
 
             // Update active state in grid
             this.updateActiveBackground(filename);
 
-            // Try to set as default via API
+            // Try to set as default via API (_id is MongoDB id for DB records, filename for local)
             try {
                 const response = await fetch('/api/set_default', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ _id: filename })
+                    body: JSON.stringify({ _id: backgroundId })
                 });
                 
                 if (response.ok) {
@@ -518,14 +521,14 @@ class App {
         }
     }
 
-    updateCurrentBackgroundInfo(filename = null) {
+    updateCurrentBackgroundInfo(filename = null, videoUrl = null) {
         const currentVideo = document.getElementById('current-background-preview');
         const currentName = document.getElementById('current-background-name');
         
         if (currentVideo && currentName) {
             if (filename) {
-                const videoUrl = `/static/media/${filename}`;
-                currentVideo.src = videoUrl;
+                const url = videoUrl || `/static/media/${filename}`;
+                currentVideo.src = url;
                 currentVideo.load();
                 currentName.textContent = filename;
             } else {
@@ -884,9 +887,8 @@ class App {
                 const data = await response.json();
                 const video = document.getElementById('background-video');
                 if (video && data.url) {
-                    // Extract filename from URL and construct video server URL
-                    const filename = data.url.split('/').pop();
-                    const videoUrl = `/static/media/${filename}`;
+                    // Use url directly (Cloudinary full URL or local /static/media/ path)
+                    const videoUrl = (data.url.startsWith('http') || data.url.startsWith('/')) ? data.url : `/static/media/${data.filename || data.url.split('/').pop()}`;
                     video.src = videoUrl;
                     console.log('✅ Background video loaded:', videoUrl);
                 }

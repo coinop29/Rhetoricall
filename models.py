@@ -29,6 +29,7 @@ class BackgroundVideo(BaseModel):
     url: str
     filename: str
     is_default: bool = Field(default=False, alias="isDefault")
+    cloudinary_public_id: Optional[str] = None  # For Cloudinary storage - needed for delete
     created_at: Optional[datetime] = Field(default_factory=datetime.now)
 
     class Config:
