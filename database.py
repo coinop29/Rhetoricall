@@ -139,3 +139,18 @@ async def delete_item(item_id: str) -> bool:
     except Exception as e:
         logger.error(f"Error deleting item: {e}")
         raise
+
+
+async def delete_item_by_sid(sid: str) -> bool:
+    """Delete an item by Twilio / dev message sid (fallback when Mongo _id is unavailable)."""
+    try:
+        if db is None:
+            raise RuntimeError("Database not initialized")
+        if not sid or not str(sid).strip():
+            return False
+        collection = db.items
+        result = await collection.delete_one({"sid": str(sid).strip()})
+        return result.deleted_count > 0
+    except Exception as e:
+        logger.error(f"Error deleting item by sid: {e}")
+        raise

@@ -594,6 +594,16 @@ class Scene3DManager {
         }
 
         if (object) {
+            const msgKey =
+                messageData._id != null
+                    ? String(messageData._id)
+                    : messageData.sid
+                      ? String(messageData.sid)
+                      : null;
+            if (msgKey) {
+                object.userData.messageId = msgKey;
+            }
+
             // Ensure object is positioned at the desired start location in front space
             if (startPosition) {
                 object.position.set(startPosition.x, startPosition.y, startPosition.z);
@@ -627,6 +637,28 @@ class Scene3DManager {
             console.log(`✅ Added 3D ${isImage ? 'image' : 'text'} particles to scene at z=${startPosition?.z ?? 0}`);
             
             // Messages now move independently across the screen - no queue pushing
+        }
+    }
+
+    /** Remove a floating message by Mongo _id or Twilio sid (moderation). */
+    removeFloatingMessageById(messageId) {
+        if (!messageId) return;
+        const id = String(messageId);
+        for (let i = this.floatingObjects.length - 1; i >= 0; i--) {
+            const object = this.floatingObjects[i];
+            if (!object.userData || object.userData.messageId !== id) continue;
+            this.scene.remove(object);
+            object.traverse((child) => {
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) {
+                    if (Array.isArray(child.material)) {
+                        child.material.forEach((m) => m.dispose());
+                    } else {
+                        child.material.dispose();
+                    }
+                }
+            });
+            this.floatingObjects.splice(i, 1);
         }
     }
 
@@ -822,6 +854,9 @@ class Scene3DManager {
                         };
                         imageMesh.userData.lifetime = object.userData.lifetime;
                         imageMesh.userData.keepUpright = true;
+                        if (object.userData.messageId) {
+                            imageMesh.userData.messageId = object.userData.messageId;
+                        }
                         imageMesh.position.set(
                             imageMesh.userData.currentPosition.x,
                             imageMesh.userData.currentPosition.y,
@@ -905,6 +940,9 @@ class Scene3DManager {
                         };
                         textMesh.userData.lifetime = object.userData.lifetime;
                         textMesh.userData.keepUpright = true;
+                        if (object.userData.messageId) {
+                            textMesh.userData.messageId = object.userData.messageId;
+                        }
                         textMesh.position.set(
                             textMesh.userData.currentPosition.x,
                             textMesh.userData.currentPosition.y,

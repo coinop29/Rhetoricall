@@ -131,7 +131,12 @@ class App {
         // Close history on outside click
         document.addEventListener('click', (e) => {
             const history = document.getElementById('message-history');
-            if (history && !history.contains(e.target) && !e.target.closest('#show-history')) {
+            if (
+                history &&
+                !history.contains(e.target) &&
+                !e.target.closest('#show-history') &&
+                !e.target.closest('.history-delete-btn')
+            ) {
                 this.hideMessageHistory();
             }
         });
@@ -247,6 +252,10 @@ class App {
             this.updateDisplayModeUI();
         });
 
+        window.wsManager.onMessage('messageRemoved', (data) => {
+            this.applyMessageRemoval(data || {});
+        });
+
         // Handle connection events
         window.wsManager.onConnection('connect', () => {
             this.showNotification('Connected to server', 'success');
@@ -259,6 +268,73 @@ class App {
         window.wsManager.onConnection('error', () => {
             this.showNotification('Connection error', 'error');
         });
+    }
+
+    floatingMessageKey(messageData) {
+        if (!messageData) return null;
+        if (messageData._id != null && messageData._id !== '') return String(messageData._id);
+        if (messageData.sid) return String(messageData.sid);
+        return null;
+    }
+
+    applyMessageRemoval(payload) {
+        const idMatch = payload._id != null ? String(payload._id) : null;
+        const sidMatch = payload.sid != null ? String(payload.sid) : null;
+        const matches = (m) =>
+            (idMatch && String(m._id || '') === idMatch) ||
+            (sidMatch && String(m.sid || '') === sidMatch);
+
+        this.messageHistory = this.messageHistory.filter((m) => !matches(m));
+
+        if (idMatch && this.scene3D && this.scene3D.removeFloatingMessageById) {
+            this.scene3D.removeFloatingMessageById(idMatch);
+        }
+        if (sidMatch && this.scene3D && this.scene3D.removeFloatingMessageById) {
+            this.scene3D.removeFloatingMessageById(sidMatch);
+        }
+
+        const container = document.getElementById('floating-messages');
+        if (container) {
+            [idMatch, sidMatch].filter(Boolean).forEach((key) => {
+                container.querySelectorAll(`[data-message-id="${CSS.escape(key)}"]`).forEach((el) => el.remove());
+            });
+        }
+
+        const historyPanel = document.getElementById('message-history');
+        if (historyPanel && !historyPanel.classList.contains('hidden')) {
+            this.showMessageHistory();
+        }
+    }
+
+    async deleteHistoryMessage(message, ev) {
+        if (ev) {
+            ev.preventDefault();
+            ev.stopPropagation();
+        }
+        const body = {};
+        if (message._id != null && message._id !== '') body._id = String(message._id);
+        if (message.sid) body.sid = String(message.sid);
+        if (!body._id && !body.sid) {
+            this.showNotification('Cannot remove this message (no id yet). Refresh and try again.', 'warning');
+            return;
+        }
+        try {
+            const response = await fetch('/api/delete-message', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            if (!response.ok) {
+                const err = await response.text();
+                this.showNotification('Could not remove message: ' + err, 'error');
+                return;
+            }
+            this.applyMessageRemoval(body);
+            this.showNotification('Message removed', 'success');
+        } catch (err) {
+            console.error(err);
+            this.showNotification('Error removing message', 'error');
+        }
     }
 
     handleIncomingMessage(messageData) {
@@ -357,29 +433,48 @@ class App {
     createHistoryMessageElement(message) {
         const div = document.createElement('div');
         div.className = 'message-item';
-        
+
+        const headerRow = document.createElement('div');
+        headerRow.className = 'message-item-header';
+
         const meta = document.createElement('div');
         meta.className = 'message-meta';
+        const ts = message.timestamp || message.created_at;
+        const timeLabel = ts && !Number.isNaN(Date.parse(ts)) ? new Date(ts).toLocaleTimeString() : '';
+        const fromLabel = message.from || message.from_number || 'Unknown';
         meta.innerHTML = `
-            <span>${message.from || 'Unknown'}</span>
-            <span>${new Date(message.timestamp).toLocaleTimeString()}</span>
+            <span>${fromLabel}</span>
+            <span>${timeLabel}</span>
         `;
-        
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'history-delete-btn';
+        removeBtn.setAttribute('aria-label', 'Remove message from display and history');
+        removeBtn.title = 'Remove message';
+        removeBtn.textContent = '×';
+        removeBtn.addEventListener('click', (e) => this.deleteHistoryMessage(message, e));
+
+        headerRow.appendChild(meta);
+        headerRow.appendChild(removeBtn);
+
         const content = document.createElement('div');
         content.className = 'message-content';
-        
-        if (message.imageUrl && message.imageGenerationStatus === 'success') {
+
+        const imageUrl = message.imageUrl || message.image_url;
+        const imageStatus = message.imageGenerationStatus || message.image_generation_status;
+        if (imageUrl && imageStatus === 'success') {
             content.innerHTML = `
                 <p>${message.body || message.text || 'Image message'}</p>
-                <img src="${message.imageUrl}" alt="Generated image" class="message-image" onerror="this.style.display='none'">
+                <img src="${imageUrl}" alt="Generated image" class="message-image" onerror="this.style.display='none'">
             `;
         } else {
             content.textContent = message.body || message.text || 'Unknown message';
         }
-        
-        div.appendChild(meta);
+
+        div.appendChild(headerRow);
         div.appendChild(content);
-        
+
         return div;
     }
 
@@ -811,7 +906,11 @@ class App {
         
         const messageDiv = document.createElement('div');
         messageDiv.className = `floating-message ${isImage ? 'image' : 'text'}`;
-        
+        const floatKey = this.floatingMessageKey(messageData);
+        if (floatKey) {
+            messageDiv.dataset.messageId = floatKey;
+        }
+
         // Random horizontal position
         const randomX = Math.random() * (window.innerWidth - 300);
         messageDiv.style.left = `${randomX}px`;

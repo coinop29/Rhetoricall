@@ -15,6 +15,7 @@ import uvicorn
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from starlette.middleware.base import BaseHTTPMiddleware
+from bson.errors import InvalidId
 
 # Load environment variables from .env file
 load_dotenv()
@@ -40,7 +41,7 @@ def _log_env_on_startup():
     logger.info("=======================================")
 
 # Import our modules
-from database import init_db, insert_item, check_phone_number
+from database import init_db, insert_item, check_phone_number, delete_item, delete_item_by_sid
 from twilio_service import init_twilio
 from image_service import get_image, get_current_provider
 from models import MessageItem, BackgroundVideo, DisplayMode
@@ -98,6 +99,16 @@ class ConnectionManager:
                 self.active_connections.remove(connection)
 
 manager = ConnectionManager()
+
+
+def item_dict_for_broadcast(item: MessageItem, inserted_id: str) -> Dict[str, Any]:
+    """Serialize message for WebSocket clients, including Mongo _id for moderation."""
+    item_dict = item.dict()
+    if item_dict.get("created_at"):
+        item_dict["created_at"] = item_dict["created_at"].isoformat()
+    item_dict["_id"] = inserted_id
+    return item_dict
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -277,13 +288,8 @@ async def message_incoming(request: Request):
         is_exists = await check_phone_number(item.from_number)
         
         # Insert item
-        await insert_item(item.dict())
-        
-        # Broadcast to WebSocket clients
-        # Convert datetime objects to strings for JSON serialization
-        item_dict = item.dict()
-        if item_dict.get('created_at'):
-            item_dict['created_at'] = item_dict['created_at'].isoformat()
+        inserted_id = await insert_item(item.dict())
+        item_dict = item_dict_for_broadcast(item, inserted_id)
         await manager.broadcast({"type": "messageIncoming", "filtered": item_dict})
         
         if is_exists:
@@ -346,13 +352,8 @@ async def whatsapp_message_incoming(request: Request):
         is_exists = await check_phone_number(item.from_number)
         
         # Insert item
-        await insert_item(item.dict())
-        
-        # Broadcast to WebSocket clients
-        # Convert datetime objects to strings for JSON serialization
-        item_dict = item.dict()
-        if item_dict.get('created_at'):
-            item_dict['created_at'] = item_dict['created_at'].isoformat()
+        inserted_id = await insert_item(item.dict())
+        item_dict = item_dict_for_broadcast(item, inserted_id)
         await manager.broadcast({"type": "messageIncoming", "filtered": item_dict})
         
         if is_exists:
@@ -420,12 +421,8 @@ async def dev_message_incoming(payload: dict):
         is_exists = await check_phone_number(item.from_number)
 
         # Insert item
-        await insert_item(item.dict())
-
-        # Broadcast to clients
-        item_dict = item.dict()
-        if item_dict.get('created_at'):
-            item_dict['created_at'] = item_dict['created_at'].isoformat()
+        inserted_id = await insert_item(item.dict())
+        item_dict = item_dict_for_broadcast(item, inserted_id)
         await manager.broadcast({"type": "messageIncoming", "filtered": item_dict})
 
         return {
@@ -440,6 +437,35 @@ async def dev_message_incoming(payload: dict):
     except Exception as error:
         logger.error(f"Error in /api/dev/messageIncoming: {error}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
+
+
+@app.post("/api/delete-message")
+async def delete_message(req: dict):
+    """Remove a message from the database and notify all WebSocket clients (moderation)."""
+    msg_id = req.get("_id") or req.get("id")
+    sid_raw = req.get("sid")
+    sid = (sid_raw or "").strip() or None
+    str_id = str(msg_id).strip() if msg_id else None
+    if not str_id and not sid:
+        raise HTTPException(status_code=400, detail="Provide _id or sid")
+    deleted = False
+    if str_id:
+        try:
+            deleted = await delete_item(str_id)
+        except InvalidId:
+            deleted = False
+    if not deleted and sid:
+        deleted = await delete_item_by_sid(sid)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Message not found")
+    removal: Dict[str, Any] = {"type": "messageRemoved"}
+    if str_id:
+        removal["_id"] = str_id
+    if sid:
+        removal["sid"] = sid
+    await manager.broadcast(removal)
+    return {"success": True}
+
 
 # Background video endpoints
 async def process_background_upload(filename: str, file_content: bytes):
