@@ -11,6 +11,9 @@ ENV/
 # Node
 node_modules/
 
+# WhatsApp session — scan QR locally, upload to Render disk manually
+baileys_auth_info/
+
 # Environment files
 .env
 .env.local

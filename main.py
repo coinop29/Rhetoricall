@@ -42,7 +42,6 @@ def _log_env_on_startup():
 
 # Import our modules
 from database import init_db, insert_item, check_phone_number, delete_item, delete_item_by_sid
-from twilio_service import init_twilio
 from image_service import get_image, get_current_provider
 from models import MessageItem, BackgroundVideo, DisplayMode
 from profanity_filter import clean_text
@@ -115,8 +114,6 @@ async def lifespan(app: FastAPI):
     # Startup
     _log_env_on_startup()
     await init_db()
-    logger.info("Database initialized and ready")
-    await init_twilio()
     logger.info("Application startup complete")
     yield
     # Shutdown
@@ -631,15 +628,6 @@ async def delete_background(background_id: dict):
         raise
     except Exception as error:
         logger.error(f"Error in /api/delete: {error}")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
-
-@app.post("/api/load")
-async def load_twilio_data():
-    try:
-        data = await init_twilio()
-        return {"data": data}
-    except Exception as error:
-        logger.error(f"Error in /api/load: {error}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 # Banner message endpoints
