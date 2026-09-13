@@ -55,6 +55,9 @@ logger = logging.getLogger(__name__)
 # Global display mode setting
 global_display_mode = 'image'
 
+# WhatsApp bridge state
+whatsapp_state = {"status": "disconnected", "qr": None}
+
 # Global banner settings
 global_banner_settings = {
     "message": "WHAT IS YOUR CRITICAL IDEA?",
@@ -76,8 +79,11 @@ class ConnectionManager:
         await websocket.accept()
         self.active_connections.append(websocket)
         logger.info(f"WebSocket connected. Total connections: {len(self.active_connections)}")
-        # Send current display mode to newly connected client
+        # Send current display mode and WhatsApp state to newly connected client
         await websocket.send_json({"type": "displayModeChanged", "mode": global_display_mode})
+        await websocket.send_json({"type": "whatsappStatus", "status": whatsapp_state["status"]})
+        if whatsapp_state["qr"]:
+            await websocket.send_json({"type": "whatsappQR", "qr": whatsapp_state["qr"]})
 
     def disconnect(self, websocket: WebSocket):
         self.active_connections.remove(websocket)
@@ -204,6 +210,27 @@ async def websocket_handler(websocket: WebSocket):
                     
     except WebSocketDisconnect:
         manager.disconnect(websocket)
+
+@app.get("/api/whatsapp/state")
+async def get_whatsapp_state():
+    return whatsapp_state
+
+@app.post("/api/whatsapp/qr")
+async def receive_whatsapp_qr(request: Request):
+    data = await request.json()
+    whatsapp_state["qr"] = data.get("qr")
+    whatsapp_state["status"] = "qr_pending"
+    await manager.broadcast({"type": "whatsappQR", "qr": whatsapp_state["qr"]})
+    return {"ok": True}
+
+@app.post("/api/whatsapp/status")
+async def receive_whatsapp_status(request: Request):
+    data = await request.json()
+    whatsapp_state["status"] = data.get("status")
+    if whatsapp_state["status"] == "connected":
+        whatsapp_state["qr"] = None
+    await manager.broadcast({"type": "whatsappStatus", "status": whatsapp_state["status"]})
+    return {"ok": True}
 
 @app.get("/api/display-mode")
 async def get_display_mode():

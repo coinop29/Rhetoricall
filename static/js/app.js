@@ -128,6 +128,20 @@ class App {
             closeBannerSettingsBtn.addEventListener('click', () => this.hideBannerSettings());
         }
 
+        // WhatsApp QR modal
+        const whatsappBtn = document.getElementById('whatsapp-settings');
+        if (whatsappBtn) {
+            whatsappBtn.addEventListener('click', () => {
+                document.getElementById('whatsapp-qr-modal').classList.remove('hidden');
+            });
+        }
+        const closeWhatsappBtn = document.getElementById('close-whatsapp-qr');
+        if (closeWhatsappBtn) {
+            closeWhatsappBtn.addEventListener('click', () => {
+                document.getElementById('whatsapp-qr-modal').classList.add('hidden');
+            });
+        }
+
         // Close history on outside click
         document.addEventListener('click', (e) => {
             const history = document.getElementById('message-history');
@@ -254,6 +268,14 @@ class App {
 
         window.wsManager.onMessage('messageRemoved', (data) => {
             this.applyMessageRemoval(data || {});
+        });
+
+        window.wsManager.onMessage('whatsappQR', (data) => {
+            this.showWhatsAppQR(data.qr);
+        });
+
+        window.wsManager.onMessage('whatsappStatus', (data) => {
+            this.updateWhatsAppStatus(data.status);
         });
 
         // Handle connection events
@@ -1343,6 +1365,40 @@ class App {
     truncateText(text, maxLength = 100) {
         if (text.length <= maxLength) return text;
         return text.substring(0, maxLength) + '...';
+    }
+
+    showWhatsAppQR(qrData) {
+        const container = document.getElementById('whatsapp-qr-code');
+        const statusText = document.getElementById('whatsapp-modal-status');
+        if (!container) return;
+
+        // Clear previous QR
+        container.innerHTML = '';
+        if (statusText) statusText.textContent = 'Scan with WhatsApp to connect';
+
+        new QRCode(container, { text: qrData, width: 256, height: 256 });
+
+        // Auto-open modal so admin sees it
+        document.getElementById('whatsapp-qr-modal')?.classList.remove('hidden');
+    }
+
+    updateWhatsAppStatus(status) {
+        const dot = document.getElementById('whatsapp-status-dot');
+        const statusText = document.getElementById('whatsapp-modal-status');
+        const modal = document.getElementById('whatsapp-qr-modal');
+
+        const dotMap = { connected: '🟢', qr_pending: '🟡', disconnected: '⚫', logged_out: '🔴' };
+        if (dot) dot.textContent = dotMap[status] || '⚫';
+
+        if (status === 'connected') {
+            if (statusText) statusText.textContent = 'WhatsApp connected ✓';
+            document.getElementById('whatsapp-qr-code').innerHTML = '';
+            setTimeout(() => modal?.classList.add('hidden'), 1500);
+        } else if (status === 'disconnected') {
+            if (statusText) statusText.textContent = 'Disconnected — reconnecting...';
+        } else if (status === 'logged_out') {
+            if (statusText) statusText.textContent = 'Logged out. Restart the server to re-scan.';
+        }
     }
 }
 
