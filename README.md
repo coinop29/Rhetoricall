@@ -38,6 +38,22 @@ The API will be available at `http://localhost:8000`
 
 ## Deployment
 
+### Current production: Render
+
+- App: https://rhetoricall.onrender.com
+- Dashboard: https://dashboard.render.com/web/srv-d6a5huvpm1nc739rjs8g
+- Branch: `faizan/pythonbackennd` (auto-deploy on commit)
+- Runtime: Python 3 with Node.js 20 or newer
+- Build command: `pip install -r requirements.txt && npm ci --omit=dev`
+- Start command: `sh start.sh`
+- Health check: `/health`
+
+The startup script runs FastAPI and the Baileys WhatsApp bridge together using
+Render's `PORT`. Open the app's WhatsApp panel and scan its QR code using
+WhatsApp's Linked Devices to connect. The free instance sleeps when idle and
+has no persistent session storage, so a restart or redeploy can require pairing
+again. Twilio credentials are no longer used by the bridge.
+
 ### Docker
 
 ```bash
