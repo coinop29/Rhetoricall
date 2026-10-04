@@ -56,14 +56,19 @@ logger = logging.getLogger(__name__)
 global_display_mode = 'image'
 
 # WhatsApp bridge state
-whatsapp_state = {"status": "disconnected", "qr": None}
+whatsapp_state = {
+    "status": "starting",
+    "qr": None,
+    "phoneNumber": "",
+    "displayName": "",
+}
 
 # Global banner settings
 global_banner_settings = {
     "message": "WHAT IS YOUR CRITICAL IDEA?",
     "enabled": True,
     "fontSize": 24,
-    "phoneNumber": "845-524-9694",
+    "phoneNumber": "",
     "phoneFontSize": 20,
     "textColor": "#ffffff",
     "phoneColor": "#ffffff",
@@ -81,7 +86,7 @@ class ConnectionManager:
         logger.info(f"WebSocket connected. Total connections: {len(self.active_connections)}")
         # Send current display mode and WhatsApp state to newly connected client
         await websocket.send_json({"type": "displayModeChanged", "mode": global_display_mode})
-        await websocket.send_json({"type": "whatsappStatus", "status": whatsapp_state["status"]})
+        await websocket.send_json({"type": "whatsappStatus", **whatsapp_state})
         if whatsapp_state["qr"]:
             await websocket.send_json({"type": "whatsappQR", "qr": whatsapp_state["qr"]})
 
@@ -93,7 +98,11 @@ class ConnectionManager:
         await websocket.send_text(message)
 
     async def broadcast(self, message: dict):
-        logger.info(f"Broadcasting message to {len(self.active_connections)} connections: {message}")
+        logger.info(
+            "Broadcasting %s to %s connections",
+            message.get("type", "unknown"),
+            len(self.active_connections),
+        )
         for connection in self.active_connections:
             try:
                 await connection.send_json(message)
@@ -221,15 +230,33 @@ async def receive_whatsapp_qr(request: Request):
     whatsapp_state["qr"] = data.get("qr")
     whatsapp_state["status"] = "qr_pending"
     await manager.broadcast({"type": "whatsappQR", "qr": whatsapp_state["qr"]})
+    await manager.broadcast({"type": "whatsappStatus", **whatsapp_state})
     return {"ok": True}
 
 @app.post("/api/whatsapp/status")
 async def receive_whatsapp_status(request: Request):
     data = await request.json()
-    whatsapp_state["status"] = data.get("status")
+    allowed_statuses = {"starting", "qr_pending", "connected", "reconnecting", "logged_out"}
+    status = data.get("status")
+    if status not in allowed_statuses:
+        raise HTTPException(status_code=400, detail="Invalid WhatsApp status")
+
+    whatsapp_state["status"] = status
     if whatsapp_state["status"] == "connected":
         whatsapp_state["qr"] = None
-    await manager.broadcast({"type": "whatsappStatus", "status": whatsapp_state["status"]})
+        whatsapp_state["phoneNumber"] = str(data.get("phoneNumber") or "").strip()
+        whatsapp_state["displayName"] = str(data.get("displayName") or "").strip()
+        if whatsapp_state["phoneNumber"]:
+            global_banner_settings["phoneNumber"] = whatsapp_state["phoneNumber"]
+            await manager.broadcast({"type": "bannerSettingsChanged", **global_banner_settings})
+    elif whatsapp_state["status"] == "logged_out":
+        whatsapp_state["qr"] = None
+        whatsapp_state["phoneNumber"] = ""
+        whatsapp_state["displayName"] = ""
+        global_banner_settings["phoneNumber"] = ""
+        await manager.broadcast({"type": "bannerSettingsChanged", **global_banner_settings})
+
+    await manager.broadcast({"type": "whatsappStatus", **whatsapp_state})
     return {"ok": True}
 
 @app.get("/api/display-mode")
@@ -687,6 +714,7 @@ async def set_banner_message(request: dict):
         }
 
         global_banner_settings.update(updated_settings)
+        await manager.broadcast({"type": "bannerSettingsChanged", **global_banner_settings})
 
         logger.info(
             "Banner settings updated: message='%s', enabled=%s, fontSize=%s, phone='%s'",

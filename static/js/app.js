@@ -8,7 +8,7 @@ class App {
         this.currentTextColor = '#2F24C1';
         this.randomizeColors = false;
         this.uiVisible = true;
-        this.defaultBannerPhone = '+1 (516) 874-0789';
+        this.defaultBannerPhone = '';
         this.defaultBannerFontFamily = 'Orbitron';
         
         this.init();
@@ -20,6 +20,7 @@ class App {
         this.loadDefaultBackground();
         this.updateDisplayModeUI();
         this.loadBannerMessage();
+        this.loadWhatsAppState();
         
         // Initialize 3D scene
         await this.init3DScene();
@@ -275,7 +276,11 @@ class App {
         });
 
         window.wsManager.onMessage('whatsappStatus', (data) => {
-            this.updateWhatsAppStatus(data.status);
+            this.updateWhatsAppStatus(data);
+        });
+
+        window.wsManager.onMessage('bannerSettingsChanged', (data) => {
+            this.applyBannerSettings(data);
         });
 
         // Handle connection events
@@ -1030,16 +1035,12 @@ class App {
                 const data = await response.json();
                 if (data.enabled && data.message && data.message.trim() !== '') {
                     const fontSize = data.fontSize || 24;
-                    const phoneNumber = data.phoneNumber && data.phoneNumber.trim() !== '' ? data.phoneNumber : this.defaultBannerPhone;
+                    const phoneNumber = data.phoneNumber && data.phoneNumber.trim() !== '' ? data.phoneNumber : '';
                     const phoneFontSize = data.phoneFontSize || 32;
                     const textColor = data.textColor || '#ffffff';
                     const phoneColor = data.phoneColor || '#ffffff';
                     const fontFamily = data.fontFamily || this.defaultBannerFontFamily;
-                    this.showBanner(data.message, fontSize, phoneNumber, phoneFontSize, {
-                        textColor,
-                        phoneColor,
-                        fontFamily
-                    });
+                    this.showBanner(data.message, fontSize, phoneNumber, phoneFontSize, { textColor, phoneColor, fontFamily });
                 } else {
                     // Hide banner if disabled or no message
                     this.hideBanner();
@@ -1051,7 +1052,7 @@ class App {
             this.showBanner(
                 'WHAT IS YOUR CRITICAL IDEA?',
                 24,
-                this.defaultBannerPhone || '845-524-9694',
+                '',
                 20,
                 {
                     textColor: '#ffffff',
@@ -1092,7 +1093,7 @@ class App {
             
             if (bannerPhone) {
                 if (phoneNumber && phoneNumber.trim() !== '') {
-                    bannerPhone.textContent = `SMS/ WhatsApp / iMessage your Answer to ${phoneNumber}`;
+                    bannerPhone.textContent = `WhatsApp your answer to ${phoneNumber}`;
                     bannerPhone.style.fontSize = `${phoneFontSize}px`;
                     bannerPhone.style.color = phoneColor;
                     bannerPhone.style.fontFamily = this.getFontStack(fontFamily);
@@ -1374,30 +1375,86 @@ class App {
 
         // Clear previous QR
         container.innerHTML = '';
-        if (statusText) statusText.textContent = 'Scan with WhatsApp to connect';
+        if (!qrData) return;
+        if (statusText) statusText.textContent = 'Scan this code to connect WhatsApp';
 
         new QRCode(container, { text: qrData, width: 256, height: 256 });
 
-        // Auto-open modal so admin sees it
-        document.getElementById('whatsapp-qr-modal')?.classList.remove('hidden');
     }
 
-    updateWhatsAppStatus(status) {
-        const dot = document.getElementById('whatsapp-status-dot');
-        const statusText = document.getElementById('whatsapp-modal-status');
-        const modal = document.getElementById('whatsapp-qr-modal');
+    async loadWhatsAppState() {
+        try {
+            const response = await fetch('/api/whatsapp/state');
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const state = await response.json();
+            this.updateWhatsAppStatus(state);
+            if (state.qr) this.showWhatsAppQR(state.qr);
+        } catch (error) {
+            console.warn('Could not load WhatsApp state:', error);
+            this.updateWhatsAppStatus({ status: 'starting' });
+        }
+    }
 
-        const dotMap = { connected: '🟢', qr_pending: '🟡', disconnected: '⚫', logged_out: '🔴' };
+    applyBannerSettings(data) {
+        if (!data?.enabled || !data.message?.trim()) {
+            this.hideBanner();
+            return;
+        }
+        this.showBanner(
+            data.message,
+            data.fontSize || 24,
+            data.phoneNumber || '',
+            data.phoneFontSize || 20,
+            {
+                textColor: data.textColor || '#ffffff',
+                phoneColor: data.phoneColor || '#ffffff',
+                fontFamily: data.fontFamily || this.defaultBannerFontFamily,
+            }
+        );
+    }
+
+    updateWhatsAppStatus(state = {}) {
+        const status = state.status || 'starting';
+        const dot = document.getElementById('whatsapp-status-dot');
+        const label = document.getElementById('whatsapp-status-label');
+        const statusText = document.getElementById('whatsapp-modal-status');
+        const connectedNumber = document.getElementById('whatsapp-connected-number');
+        const qrContainer = document.getElementById('whatsapp-qr-code');
+        const help = document.getElementById('whatsapp-help');
+
+        const dotMap = { connected: '🟢', qr_pending: '🟡', reconnecting: '🟠', starting: '⚫', logged_out: '🔴' };
+        const labelMap = { connected: 'Connected', qr_pending: 'Scan QR', reconnecting: 'Reconnecting', starting: 'Starting', logged_out: 'Needs setup' };
         if (dot) dot.textContent = dotMap[status] || '⚫';
+        if (label) label.textContent = labelMap[status] || 'Starting';
+        if (connectedNumber) connectedNumber.style.display = 'none';
+        if (help) help.style.display = status === 'qr_pending' ? 'block' : 'none';
 
         if (status === 'connected') {
-            if (statusText) statusText.textContent = 'WhatsApp connected ✓';
-            document.getElementById('whatsapp-qr-code').innerHTML = '';
-            setTimeout(() => modal?.classList.add('hidden'), 1500);
-        } else if (status === 'disconnected') {
-            if (statusText) statusText.textContent = 'Disconnected — reconnecting...';
+            if (statusText) statusText.textContent = state.displayName ? `Connected as ${state.displayName}` : 'WhatsApp connected';
+            if (connectedNumber && state.phoneNumber) {
+                connectedNumber.textContent = state.phoneNumber;
+                connectedNumber.style.display = 'block';
+            }
+            if (qrContainer) qrContainer.innerHTML = '<span style="font-size:48px;color:#35c759;">✓</span>';
+            if (state.phoneNumber) {
+                this.defaultBannerPhone = state.phoneNumber;
+                const bannerPhone = document.getElementById('banner-phone');
+                if (bannerPhone) {
+                    bannerPhone.textContent = `WhatsApp your answer to ${state.phoneNumber}`;
+                    bannerPhone.style.display = 'block';
+                }
+            }
+        } else if (status === 'reconnecting') {
+            if (statusText) statusText.textContent = 'Connection interrupted. Reconnecting…';
+            if (qrContainer) qrContainer.innerHTML = '';
+        } else if (status === 'qr_pending') {
+            if (statusText) statusText.textContent = 'Scan this code to connect WhatsApp';
+        } else if (status === 'starting') {
+            if (statusText) statusText.textContent = 'Starting WhatsApp…';
+            if (qrContainer) qrContainer.innerHTML = '';
         } else if (status === 'logged_out') {
-            if (statusText) statusText.textContent = 'Logged out. Restart the server to re-scan.';
+            if (statusText) statusText.textContent = 'WhatsApp was logged out. Restart the service to generate a new QR code.';
+            if (qrContainer) qrContainer.innerHTML = '';
         }
     }
 }

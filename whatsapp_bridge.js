@@ -1,18 +1,28 @@
 import makeWASocket, { useMultiFileAuthState, DisconnectReason } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
+import { pathToFileURL } from 'node:url';
 
 const FASTAPI_URL = process.env.FASTAPI_URL || 'http://localhost:8000';
 
 async function post(path, body) {
     try {
-        await fetch(`${FASTAPI_URL}${path}`, {
+        const response = await fetch(`${FASTAPI_URL}${path}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
         });
+        if (!response.ok) {
+            throw new Error(`${response.status} ${response.statusText}`);
+        }
     } catch (err) {
         console.error(`POST ${path} failed:`, err.message);
     }
+}
+
+export function phoneNumberFromJid(jid = '') {
+    const account = String(jid).split('@')[0].split(':')[0];
+    const digits = account.replace(/\D/g, '');
+    return digits ? `+${digits}` : '';
 }
 
 async function connect() {
@@ -29,19 +39,29 @@ async function connect() {
         }
 
         if (connection === 'open') {
-            console.log('WhatsApp bridge ready');
-            await post('/api/whatsapp/status', { status: 'connected' });
+            const phoneNumber = phoneNumberFromJid(sock.user?.id);
+            const displayName = sock.user?.name || '';
+            console.log(`WhatsApp bridge ready${phoneNumber ? ` for ${phoneNumber}` : ''}`);
+            await post('/api/whatsapp/status', {
+                status: 'connected',
+                phoneNumber,
+                displayName,
+            });
         } else if (connection === 'close') {
-            await post('/api/whatsapp/status', { status: 'disconnected' });
             const code = (lastDisconnect?.error instanceof Boom)
                 ? lastDisconnect.error.output.statusCode
                 : 0;
             if (code !== DisconnectReason.loggedOut) {
                 console.log('Reconnecting...');
+                await post('/api/whatsapp/status', { status: 'reconnecting' });
                 connect();
             } else {
                 console.error('Logged out — delete baileys_auth_info/ and restart');
-                await post('/api/whatsapp/status', { status: 'logged_out' });
+                await post('/api/whatsapp/status', {
+                    status: 'logged_out',
+                    phoneNumber: '',
+                    displayName: '',
+                });
             }
         }
     });
@@ -81,4 +101,6 @@ async function connect() {
     });
 }
 
-connect();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+    connect();
+}

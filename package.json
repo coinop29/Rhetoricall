@@ -4,7 +4,7 @@
   "type": "module",
   "main": "whatsapp_bridge.js",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "dependencies": {
     "@whiskeysockets/baileys": "^6.7.0",
