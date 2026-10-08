@@ -8,11 +8,8 @@ venv/
 env/
 ENV/
 
-# Node
+# Local tool caches
 node_modules/
-
-# WhatsApp session — scan QR locally, upload to Render disk manually
-baileys_auth_info/
 
 # Environment files
 .env
@@ -21,17 +18,6 @@ baileys_auth_info/
 # Build artifacts
 build/
 .zip
-
-# User uploads
-public/
-
-# Media files
-static/media/*.mp4
-*.mp4
-*.mov
-*.avi
-*.mp3
-*.wav
 
 # IDE
 .vscode/

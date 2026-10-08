@@ -68,22 +68,6 @@ async def insert_item(item: Dict[str, Any]) -> str:
         logger.error(f"Error inserting item: {e}")
         raise
 
-async def check_phone_number(phone_number: str) -> bool:
-    """Check if a phone number exists in the database"""
-    try:
-        if db is None:
-            raise RuntimeError("Database not initialized")
-        
-        collection = db.items
-        existing_record = await collection.find_one({"from": phone_number})
-        
-        logger.info(f"Phone number {phone_number} exists: {existing_record is not None}")
-        return existing_record is not None
-        
-    except Exception as e:
-        logger.error(f"Error checking phone number: {e}")
-        raise
-
 async def get_all_items(limit: int = 100) -> list:
     """Get all message items from the database"""
     try:
@@ -142,7 +126,7 @@ async def delete_item(item_id: str) -> bool:
 
 
 async def delete_item_by_sid(sid: str) -> bool:
-    """Delete an item by Twilio / dev message sid (fallback when Mongo _id is unavailable)."""
+    """Delete an item by its stable source id when Mongo _id is unavailable."""
     try:
         if db is None:
             raise RuntimeError("Database not initialized")

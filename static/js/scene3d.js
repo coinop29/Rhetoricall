@@ -27,7 +27,7 @@ class Scene3DManager {
         
         // Create scene
         this.scene = new THREE.Scene();
-        this.scene.background = null; // Transparent to show video background
+        this.scene.background = null; // Transparent to show the page background
         
         // Create camera with wider field of view for better 3D effect
         this.camera = new THREE.PerspectiveCamera(
@@ -640,7 +640,7 @@ class Scene3DManager {
         }
     }
 
-    /** Remove a floating message by Mongo _id or Twilio sid (moderation). */
+    /** Remove a floating message by Mongo _id or source id (moderation). */
     removeFloatingMessageById(messageId) {
         if (!messageId) return;
         const id = String(messageId);
@@ -1151,4 +1151,3 @@ class Scene3DManager {
 
 // Export for use in other scripts
 window.Scene3DManager = Scene3DManager;
-

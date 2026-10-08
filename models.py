@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional
 from datetime import datetime
 from enum import Enum
 
@@ -25,19 +25,6 @@ class MessageItem(BaseModel):
             datetime: lambda v: v.isoformat()
         }
 
-class BackgroundVideo(BaseModel):
-    url: str
-    filename: str
-    is_default: bool = Field(default=False, alias="isDefault")
-    cloudinary_public_id: Optional[str] = None  # For Cloudinary storage - needed for delete
-    created_at: Optional[datetime] = Field(default_factory=datetime.now)
-
-    class Config:
-        populate_by_name = True
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
-
 class DisplayMode(BaseModel):
     mode: DisplayModeEnum
 
@@ -49,22 +36,6 @@ class ImageGenerationResponse(BaseModel):
     image_url: Optional[str] = None
     prompt: str
     error: Optional[str] = None
-
-class TwilioMessage(BaseModel):
-    Body: str
-    From: str
-    SmsSid: str
-    To: str
-
-class BackgroundUploadResponse(BaseModel):
-    url: str
-    filename: str
-
-class BackgroundDeleteRequest(BaseModel):
-    _id: str
-
-class BackgroundSetDefaultRequest(BaseModel):
-    _id: str
 
 class HealthResponse(BaseModel):
     status: str

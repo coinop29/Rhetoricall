@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#090615">
+    <title>Join Rhetorical</title>
+    <link rel="stylesheet" href="/static/css/chat.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <main class="chat-shell">
+        <header class="chat-header">
+            <div class="brand-mark">R</div>
+            <div>
+                <p class="eyebrow">LIVE CONVERSATION</p>
+                <h1>Share your idea</h1>
+            </div>
+            <span class="live-pill"><i></i> Live</span>
+        </header>
+
+        <section id="conversation" class="conversation" aria-live="polite">
+            <div class="welcome-card">
+                <span class="spark">✦</span>
+                <h2>What is your critical idea?</h2>
+                <p>Send a response and watch it join the live display.</p>
+            </div>
+        </section>
+
+        <form id="message-form" class="composer">
+            <label class="sr-only" for="message-input">Your message</label>
+            <textarea id="message-input" name="message" maxlength="500" rows="2" placeholder="Type your idea…" required></textarea>
+            <div class="composer-footer">
+                <span id="character-count">0 / 500</span>
+                <button id="send-button" type="submit">
+                    <span>Send</span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 3 18 9-18 9 4-9-4-9Zm4.5 8h8.4L6.7 6.4 7.5 11Zm-.8 6.6 9.2-4.6H7.5l-.8 4.6Z"/></svg>
+                </button>
+            </div>
+            <p id="form-status" class="form-status" role="status"></p>
+        </form>
+    </main>
+    <script src="/static/js/chat.js"></script>
+</body>
+</html>
