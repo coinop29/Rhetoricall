@@ -19,6 +19,8 @@ body { width: 100vw; height: 100vh; overflow: hidden; }
         linear-gradient(160deg, #090615 0%, #020106 70%);
 }
 
+.background-video { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; object-fit: cover; }
+
 #app::before {
     content: '';
     position: absolute;
@@ -93,11 +95,19 @@ body { width: 100vw; height: 100vh; overflow: hidden; }
 .modal-body { padding: 20px; }
 .form-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
 .form-group label, .checkbox-label { color: #bcb2cd; font-size: 13px; font-weight: 600; }
-.form-group textarea, .form-group select { width: 100%; border: 1px solid rgba(255,255,255,.13); border-radius: 10px; padding: 11px; color: #fff; background: rgba(255,255,255,.06); font: inherit; }
+.form-group textarea, .form-group select, .form-group input[type='url'] { width: 100%; border: 1px solid rgba(255,255,255,.13); border-radius: 10px; padding: 11px; color: #fff; background: rgba(255,255,255,.06); font: inherit; }
 .inline-group { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .inline-group > div { display: flex; flex-direction: column; gap: 8px; }
 .banner-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 20px; }
 .save-btn { background: #7447da; }
+.background-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; max-height: 260px; overflow: auto; margin-bottom: 18px; }
+.background-option { overflow: hidden; border: 1px solid rgba(255,255,255,.12); border-radius: 12px; background: rgba(255,255,255,.04); cursor: pointer; }
+.background-option:hover, .background-option.active { border-color: #a66dff; }
+.background-option video { display: block; width: 100%; aspect-ratio: 16/9; object-fit: cover; background: #000; }
+.background-option span { display: block; overflow: hidden; padding: 8px; color: #d7cee4; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.upload-row { display: flex; align-items: center; gap: 9px; }
+.upload-row input[type='file'] { min-width: 0; color: #bcb2cd; font-size: 12px; }
+.upload-label { display: none; }
 
 #loading { position: absolute; inset: 0; z-index: 3500; display: grid; place-content: center; text-align: center; background: rgba(0,0,0,.35); }
 .spinner { width: 40px; height: 40px; margin: 0 auto 12px; border: 3px solid rgba(255,255,255,.2); border-top-color: #a66dff; border-radius: 50%; animation: spin .9s linear infinite; }

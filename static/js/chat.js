@@ -5,6 +5,25 @@
     const characterCount = document.getElementById('character-count');
     const status = document.getElementById('form-status');
     const conversation = document.getElementById('conversation');
+    const question = document.getElementById('chat-question');
+
+    const applyQuestion = (settings) => {
+        if (question && settings?.message?.trim()) question.textContent = settings.message.trim();
+    };
+
+    fetch('/api/banner-message')
+        .then((response) => response.ok ? response.json() : null)
+        .then(applyQuestion)
+        .catch(() => {});
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const socket = new WebSocket(`${protocol}//${window.location.host}/ws`);
+    socket.addEventListener('message', (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'bannerSettingsChanged') applyQuestion(data);
+        } catch (_) {}
+    });
 
     const sessionKey = 'rhetorical-chat-session';
     let sessionId = localStorage.getItem(sessionKey);

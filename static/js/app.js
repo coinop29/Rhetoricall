@@ -13,7 +13,12 @@ class App {
         this.setupEventListeners();
         this.setupWebSocketHandlers();
         this.renderChatQR();
-        await Promise.allSettled([this.loadBannerSettings(), this.loadMessageHistory(), this.init3DScene()]);
+        await Promise.allSettled([
+            this.loadBannerSettings(),
+            this.loadBackgroundVideo(),
+            this.loadMessageHistory(),
+            this.init3DScene(),
+        ]);
         this.updateDisplayModeUI();
     }
 
@@ -43,6 +48,10 @@ class App {
         document.getElementById('close-banner-settings')?.addEventListener('click', () => this.hideBannerSettings());
         document.getElementById('preview-banner')?.addEventListener('click', () => this.previewBanner());
         document.getElementById('save-banner')?.addEventListener('click', () => this.saveBannerSettings());
+        document.getElementById('background-settings')?.addEventListener('click', () => this.showBackgroundSettings());
+        document.getElementById('close-background-settings')?.addEventListener('click', () => this.hideBackgroundSettings());
+        document.getElementById('save-background-url')?.addEventListener('click', () => this.saveBackgroundUrl());
+        document.getElementById('upload-background')?.addEventListener('click', () => this.uploadBackground());
         document.getElementById('close-notification')?.addEventListener('click', () => this.hideNotification());
 
         document.getElementById('text-color')?.addEventListener('input', (event) => {
@@ -72,6 +81,7 @@ class App {
         });
         window.wsManager.onMessage('messageRemoved', (data) => this.applyMessageRemoval(data));
         window.wsManager.onMessage('bannerSettingsChanged', (data) => this.applyBannerSettings(data));
+        window.wsManager.onMessage('backgroundVideoChanged', (data) => this.applyBackgroundVideo(data));
         window.wsManager.onConnection('connect', () => this.showNotification('Display connected', 'success'));
         window.wsManager.onConnection('disconnect', () => this.showNotification('Display reconnecting…', 'error'));
     }
@@ -255,6 +265,129 @@ class App {
         text.style.color = settings.textColor || '#ffffff';
         text.style.fontFamily = `'${settings.fontFamily || 'Orbitron'}', sans-serif`;
         banner.classList.toggle('show', settings.enabled !== false && Boolean(settings.message?.trim()));
+    }
+
+    async loadBackgroundVideo() {
+        try {
+            const response = await fetch('/api/background-video');
+            if (response.ok) this.applyBackgroundVideo(await response.json());
+        } catch (error) {
+            console.warn('Could not load background video:', error);
+        }
+    }
+
+    applyBackgroundVideo(background) {
+        if (!background?.url) return;
+        this.currentBackground = background;
+        const video = document.getElementById('background-video');
+        if (video && video.getAttribute('src') !== background.url) {
+            video.src = background.url;
+            video.load();
+            video.play().catch(() => {});
+        }
+        document.querySelectorAll('.background-option').forEach((option) => {
+            option.classList.toggle('active', option.dataset.url === background.url);
+        });
+    }
+
+    async showBackgroundSettings() {
+        document.getElementById('background-settings-modal')?.classList.remove('hidden');
+        const list = document.getElementById('background-list');
+        if (!list) return;
+        list.textContent = 'Loading videos…';
+        try {
+            const response = await fetch('/api/background-videos');
+            if (!response.ok) throw new Error('Could not load videos');
+            const data = await response.json();
+            this.renderBackgroundVideos(data.videos || []);
+        } catch (error) {
+            list.textContent = 'Could not load background videos.';
+        }
+    }
+
+    hideBackgroundSettings() {
+        document.getElementById('background-settings-modal')?.classList.add('hidden');
+    }
+
+    renderBackgroundVideos(videos) {
+        const list = document.getElementById('background-list');
+        if (!list) return;
+        list.innerHTML = '';
+        videos.forEach((background) => {
+            const option = document.createElement('button');
+            option.type = 'button';
+            option.className = 'background-option';
+            option.dataset.url = background.url;
+            const preview = document.createElement('video');
+            preview.src = background.url;
+            preview.muted = true;
+            preview.loop = true;
+            preview.playsInline = true;
+            preview.preload = 'metadata';
+            const label = document.createElement('span');
+            label.textContent = background.filename || 'Background video';
+            option.append(preview, label);
+            option.addEventListener('mouseenter', () => preview.play().catch(() => {}));
+            option.addEventListener('mouseleave', () => preview.pause());
+            option.addEventListener('click', () => this.setBackgroundVideo(background));
+            if (background.url === this.currentBackground?.url) option.classList.add('active');
+            list.appendChild(option);
+        });
+    }
+
+    async setBackgroundVideo(background) {
+        const response = await fetch('/api/background-video', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(background),
+        });
+        if (!response.ok) {
+            this.showNotification('Could not change background video', 'error');
+            return;
+        }
+        this.applyBackgroundVideo(await response.json());
+        this.showNotification('Background video changed', 'success');
+    }
+
+    async saveBackgroundUrl() {
+        const input = document.getElementById('background-url');
+        const url = input?.value.trim();
+        if (!url) {
+            this.showNotification('Enter a direct HTTPS video URL', 'error');
+            return;
+        }
+        await this.setBackgroundVideo({ url, filename: url.split('/').pop() || 'Background video' });
+    }
+
+    async uploadBackground() {
+        const input = document.getElementById('background-file-input');
+        const button = document.getElementById('upload-background');
+        const file = input?.files?.[0];
+        if (!file) {
+            this.showNotification('Choose a video first', 'error');
+            return;
+        }
+        if (file.size > 50 * 1024 * 1024) {
+            this.showNotification('Video must be 50 MB or smaller', 'error');
+            return;
+        }
+        const form = new FormData();
+        form.append('file', file);
+        button.disabled = true;
+        button.textContent = 'Uploading…';
+        try {
+            const response = await fetch('/api/background-video/upload', { method: 'POST', body: form });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.detail || 'Upload failed');
+            await this.setBackgroundVideo(result);
+            await this.showBackgroundSettings();
+            input.value = '';
+        } catch (error) {
+            this.showNotification(error.message || 'Could not upload video', 'error');
+        } finally {
+            button.disabled = false;
+            button.textContent = 'Upload';
+        }
     }
 
     showNotification(message, type = 'info') {

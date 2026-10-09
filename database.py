@@ -138,3 +138,40 @@ async def delete_item_by_sid(sid: str) -> bool:
     except Exception as e:
         logger.error(f"Error deleting item by sid: {e}")
         raise
+
+
+async def get_app_setting(key: str) -> Optional[Dict[str, Any]]:
+    """Read a persisted application setting."""
+    if db is None:
+        raise RuntimeError("Database not initialized")
+    setting = await db.settings.find_one({"_id": key})
+    if setting:
+        setting["_id"] = str(setting["_id"])
+    return setting
+
+
+async def set_app_setting(key: str, value: Dict[str, Any]) -> Dict[str, Any]:
+    """Persist an application setting and return its public value."""
+    if db is None:
+        raise RuntimeError("Database not initialized")
+    document = {**value, "updated_at": datetime.now()}
+    await db.settings.update_one({"_id": key}, {"$set": document}, upsert=True)
+    return {"_id": key, **document}
+
+
+async def list_background_videos() -> list:
+    """Return uploaded background-video metadata."""
+    if db is None:
+        raise RuntimeError("Database not initialized")
+    videos = await db.background_videos.find().sort("created_at", -1).to_list(length=100)
+    for video in videos:
+        video["_id"] = str(video["_id"])
+    return videos
+
+
+async def add_background_video(video: Dict[str, Any]) -> str:
+    """Store uploaded background-video metadata."""
+    if db is None:
+        raise RuntimeError("Database not initialized")
+    result = await db.background_videos.insert_one({**video, "created_at": datetime.now()})
+    return str(result.inserted_id)

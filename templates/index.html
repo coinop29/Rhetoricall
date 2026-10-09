@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rhetorical — Live Ideas</title>
-    <link rel="stylesheet" href="/static/css/style.css?v=web-chat-1">
+    <link rel="stylesheet" href="/static/css/style.css?v=web-chat-2">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;700&family=Russo+One&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/js/loaders/FontLoader.js"></script>
@@ -13,6 +13,7 @@
 </head>
 <body>
     <div id="app">
+        <video id="background-video" class="background-video" autoplay muted loop playsinline></video>
         <header id="message-banner" class="message-banner show">
             <div class="banner-content">
                 <div id="banner-qr-code" class="banner-qr-code" aria-label="QR code to open the chat"></div>
@@ -41,6 +42,7 @@
             <button id="toggle-mode" class="control-btn">Switch to Text Mode</button>
             <button id="show-history" class="control-btn">Show History</button>
             <button id="banner-settings" class="control-btn">Banner Settings</button>
+            <button id="background-settings" class="control-btn">Background Video</button>
             <div class="control-group">
                 <label for="text-color">Text Color</label>
                 <input id="text-color" type="color" value="#2F24C1">
@@ -48,6 +50,30 @@
             <div class="control-group">
                 <label for="randomize-colors">Random Colors</label>
                 <input id="randomize-colors" type="checkbox">
+            </div>
+        </div>
+
+        <div id="background-settings-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Background Video</h3>
+                    <button id="close-background-settings" class="close-btn" aria-label="Close background settings">×</button>
+                </div>
+                <div class="modal-body">
+                    <div id="background-list" class="background-grid"></div>
+                    <div class="form-group">
+                        <label for="background-url">Or use a direct HTTPS video URL</label>
+                        <input id="background-url" type="url" placeholder="https://example.com/background.mp4">
+                    </div>
+                    <div class="upload-row">
+                        <label class="upload-label" for="background-file-input">Choose video</label>
+                        <input id="background-file-input" type="file" accept="video/mp4,video/webm,video/quicktime">
+                        <button id="upload-background" class="action-btn">Upload</button>
+                    </div>
+                    <div class="banner-actions">
+                        <button id="save-background-url" class="action-btn save-btn">Use URL</button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -113,6 +139,6 @@
 
     <script src="/static/js/scene3d.js?v=web-chat-1"></script>
     <script src="/static/js/websocket.js?v=web-chat-1"></script>
-    <script src="/static/js/app.js?v=web-chat-1"></script>
+    <script src="/static/js/app.js?v=web-chat-2"></script>
 </body>
 </html>

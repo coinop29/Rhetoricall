@@ -9,16 +9,27 @@ from typing import Any, Dict, List
 import uvicorn
 from bson.errors import InvalidId
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field, field_validator
 
-from database import delete_item, delete_item_by_sid, get_all_items, init_db, insert_item
+from database import (
+    add_background_video,
+    delete_item,
+    delete_item_by_sid,
+    get_all_items,
+    get_app_setting,
+    init_db,
+    insert_item,
+    list_background_videos,
+    set_app_setting,
+)
 from image_service import get_current_provider, get_image
 from models import DisplayMode, MessageItem
 from profanity_filter import clean_text
+from video_storage import upload_video
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -32,6 +43,11 @@ global_banner_settings = {
     "textColor": "#ffffff",
     "fontFamily": "Orbitron",
 }
+DEFAULT_BACKGROUND = {
+    "url": "/public/1721069271889-707935615.mp4",
+    "filename": "1721069271889-707935615.mp4",
+}
+global_background_video = dict(DEFAULT_BACKGROUND)
 
 
 class ChatMessageRequest(BaseModel):
@@ -56,6 +72,7 @@ class ConnectionManager:
         self.active_connections.append(websocket)
         await websocket.send_json({"type": "displayModeChanged", "mode": global_display_mode})
         await websocket.send_json({"type": "bannerSettingsChanged", **global_banner_settings})
+        await websocket.send_json({"type": "backgroundVideoChanged", **global_background_video})
 
     def disconnect(self, websocket: WebSocket):
         if websocket in self.active_connections:
@@ -121,6 +138,16 @@ async def save_web_message(body: str, session_id: str) -> Dict[str, Any]:
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     await init_db()
+    global global_background_video, global_banner_settings
+    saved_banner = await get_app_setting("banner_settings")
+    if saved_banner:
+        global_banner_settings.update({key: saved_banner[key] for key in global_banner_settings if key in saved_banner})
+    saved_background = await get_app_setting("background_video")
+    if saved_background:
+        global_background_video = {
+            "url": saved_background.get("url", DEFAULT_BACKGROUND["url"]),
+            "filename": saved_background.get("filename", DEFAULT_BACKGROUND["filename"]),
+        }
     logger.info("Application startup complete")
     yield
     logger.info("Application shutdown")
@@ -133,6 +160,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/public", StaticFiles(directory="public"), name="public")
 templates = Jinja2Templates(directory="templates")
 
 
@@ -249,8 +277,57 @@ async def set_banner_message(request: dict):
             "fontFamily": request.get("fontFamily", global_banner_settings["fontFamily"]),
         }
     )
+    await set_app_setting("banner_settings", global_banner_settings)
     await manager.broadcast({"type": "bannerSettingsChanged", **global_banner_settings})
     return {"success": True, **global_banner_settings}
+
+
+@app.get("/api/background-video")
+async def get_background_video():
+    return {"success": True, **global_background_video}
+
+
+@app.get("/api/background-videos")
+async def get_background_videos():
+    bundled = [
+        {"url": f"/public/{filename}", "filename": filename}
+        for filename in sorted(os.listdir("public"))
+        if filename.lower().endswith((".mp4", ".webm", ".mov"))
+    ]
+    uploaded = await list_background_videos()
+    return {"success": True, "videos": uploaded + bundled}
+
+
+@app.post("/api/background-video")
+async def set_background_video(request: dict):
+    url = str(request.get("url") or "").strip()
+    filename = str(request.get("filename") or url.rsplit("/", 1)[-1] or "Background video").strip()[:200]
+    if not (url.startswith("https://") or url.startswith("/public/") or url.startswith("/static/media/")):
+        raise HTTPException(status_code=422, detail="Choose an uploaded video or provide a secure HTTPS video URL.")
+
+    global global_background_video
+    global_background_video = {"url": url, "filename": filename}
+    await set_app_setting("background_video", global_background_video)
+    await manager.broadcast({"type": "backgroundVideoChanged", **global_background_video})
+    return {"success": True, **global_background_video}
+
+
+@app.post("/api/background-video/upload", status_code=201)
+async def upload_background_video(file: UploadFile = File(...)):
+    allowed_types = {"video/mp4", "video/webm", "video/quicktime"}
+    if file.content_type not in allowed_types:
+        raise HTTPException(status_code=422, detail="Use an MP4, WebM, or MOV video.")
+
+    content = await file.read(50 * 1024 * 1024 + 1)
+    if len(content) > 50 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Video must be 50 MB or smaller.")
+
+    safe_name = f"{uuid.uuid4().hex}-{os.path.basename(file.filename or 'background.mp4')}"
+    url, stored_filename, cloudinary_public_id = await upload_video(content, safe_name)
+    await add_background_video(
+        {"url": url, "filename": stored_filename, "cloudinary_public_id": cloudinary_public_id}
+    )
+    return {"success": True, "url": url, "filename": stored_filename}
 
 
 if __name__ == "__main__":
